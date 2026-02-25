@@ -8,6 +8,25 @@ export function setToken(token: string) {
   localStorage.setItem("access_token", token);
 }
 
+export async function fetchCurrentUser() {
+  const token = getToken();
+  if (!token) {
+    throw new Error("No token");
+  }
+
+  const response = await fetch(`${API_BASE_URL}/users/me/`, {
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error("Failed to load user");
+  }
+
+  return response.json();
+}
+
 export async function login(username: string, password: string) {
   const response = await fetch(`${API_BASE_URL}/auth/login/`, {
     method: "POST",
