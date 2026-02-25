@@ -14,6 +14,7 @@ type User = {
   id: number;
   username: string;
   role: "admin" | "user";
+  is_admin: boolean;
 };
 
 function App() {
@@ -23,6 +24,7 @@ function App() {
     !!getToken()
   );
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [viewMode, setViewMode] = useState<"admin" | "user">("admin");
   const [etls, setEtls] = useState<Etl[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [name, setName] = useState("");
@@ -235,7 +237,7 @@ function App() {
         <div>
           <h1 style={{ fontSize: 24 }}>ETL Execution Platform</h1>
           <p style={{ fontSize: 14, color: "#64748b" }}>
-            Upload ETLs (admin) and browse available ETLs.
+            Admin: upload and manage ETLs. User: run ETLs and view outputs.
           </p>
         </div>
         <button
@@ -270,7 +272,53 @@ function App() {
           </div>
         )}
 
-        {currentUser?.role === "admin" && (
+        {currentUser?.is_admin && (
+          <div
+            style={{
+              display: "flex",
+              gap: 4,
+              marginBottom: 20,
+              borderBottom: "1px solid #e2e8f0"
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setViewMode("admin")}
+              style={{
+                padding: "8px 16px",
+                fontSize: 14,
+                fontWeight: 500,
+                border: "none",
+                background: viewMode === "admin" ? "#0f172a" : "transparent",
+                color: viewMode === "admin" ? "#fff" : "#64748b",
+                cursor: "pointer",
+                borderBottom: viewMode === "admin" ? "2px solid #0f172a" : "2px solid transparent",
+                marginBottom: -1
+              }}
+            >
+              Admin
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("user")}
+              style={{
+                padding: "8px 16px",
+                fontSize: 14,
+                fontWeight: 500,
+                border: "none",
+                background: viewMode === "user" ? "#0f172a" : "transparent",
+                color: viewMode === "user" ? "#fff" : "#64748b",
+                cursor: "pointer",
+                borderBottom: viewMode === "user" ? "2px solid #0f172a" : "2px solid transparent",
+                marginBottom: -1
+              }}
+            >
+              User
+            </button>
+          </div>
+        )}
+
+        {currentUser?.is_admin && viewMode === "admin" && (
           <section
             style={{
               marginBottom: 24
@@ -394,94 +442,185 @@ function App() {
           </section>
         )}
 
-        <section
-          style={{
-            padding: 16,
-            borderRadius: 12,
-            background: "#ffffff",
-            border: "1px solid #e2e8f0",
-            boxShadow: "0 4px 8px rgba(15,23,42,0.04)"
-          }}
-        >
-          <h2 style={{ fontSize: 18, marginBottom: 12 }}>Available ETLs</h2>
-          {etls.length === 0 ? (
-            <p style={{ fontSize: 14, color: "#64748b" }}>
-              No ETLs yet.
-              {currentUser?.role === "admin"
-                ? " Upload your first one above."
-                : " Please contact an admin to publish ETLs."}
-            </p>
-          ) : (
-            <div style={{ display: "grid", gap: 10 }}>
-              {etls.map((etl) => (
-                <div
-                  key={etl.id}
-                  style={{
-                    padding: 10,
-                    borderRadius: 10,
-                    border: "1px solid #e2e8f0",
-                    background: "#ffffff"
-                  }}
-                >
+        {(viewMode === "user" || !currentUser?.is_admin) && (
+          <section
+            style={{
+              padding: 16,
+              borderRadius: 12,
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              boxShadow: "0 4px 8px rgba(15,23,42,0.04)"
+            }}
+          >
+            <h2 style={{ fontSize: 18, marginBottom: 12 }}>Available ETLs</h2>
+            {etls.length === 0 ? (
+              <p style={{ fontSize: 14, color: "#64748b" }}>
+                No ETLs yet.
+                {currentUser?.is_admin
+                  ? " Switch to Admin to upload."
+                  : " Contact an admin to publish ETLs."}
+              </p>
+            ) : (
+              <div style={{ display: "grid", gap: 10 }}>
+                {etls.map((etl) => (
                   <div
+                    key={etl.id}
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      marginBottom: 4
+                      padding: 10,
+                      borderRadius: 10,
+                      border: "1px solid #e2e8f0",
+                      background: "#ffffff"
                     }}
                   >
-                    <div>
-                      <div style={{ fontSize: 15, fontWeight: 500 }}>
-                        {etl.name}
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 4
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 500 }}>
+                          {etl.name}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "#64748b",
+                            marginTop: 2
+                          }}
+                        >
+                          v{etl.version}
+                        </div>
                       </div>
-                      <div
-                        style={{
-                          fontSize: 12,
-                          color: "#64748b",
-                          marginTop: 2
-                        }}
-                      >
-                        v{etl.version}
+                      <div style={{ display: "flex", gap: 6, fontSize: 11 }}>
+                        <span
+                          style={{
+                            padding: "2px 8px",
+                            borderRadius: 999,
+                            border: "1px solid #cbd5e1",
+                            background: etl.is_validated
+                              ? "rgba(34,197,94,0.12)"
+                              : "rgba(148,163,184,0.08)"
+                          }}
+                        >
+                          {etl.is_validated ? "validated" : "not validated"}
+                        </span>
+                        <span
+                          style={{
+                            padding: "2px 8px",
+                            borderRadius: 999,
+                            border: "1px solid #cbd5e1",
+                            background: etl.is_active
+                              ? "rgba(34,197,94,0.12)"
+                              : "rgba(148,163,184,0.06)"
+                          }}
+                        >
+                          {etl.is_active ? "active" : "inactive"}
+                        </span>
                       </div>
                     </div>
-                    <div style={{ display: "flex", gap: 6, fontSize: 11 }}>
-                      <span
-                        style={{
-                          padding: "2px 8px",
-                          borderRadius: 999,
-                          border: "1px solid #cbd5e1",
-                          background: etl.is_validated
-                            ? "rgba(34,197,94,0.12)"
-                            : "rgba(148,163,184,0.08)"
-                        }}
-                      >
-                        {etl.is_validated ? "validated" : "not validated"}
-                      </span>
-                      <span
-                        style={{
-                          padding: "2px 8px",
-                          borderRadius: 999,
-                          border: "1px solid #cbd5e1",
-                          background: etl.is_active
-                            ? "rgba(34,197,94,0.12)"
-                            : "rgba(148,163,184,0.06)"
-                        }}
-                      >
-                        {etl.is_active ? "active" : "inactive"}
-                      </span>
-                    </div>
+                    {etl.description && (
+                      <p style={{ fontSize: 13, color: "#475569" }}>
+                        {etl.description}
+                      </p>
+                    )}
                   </div>
-                  {etl.description && (
-                    <p style={{ fontSize: 13, color: "#475569" }}>
-                      {etl.description}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {currentUser?.is_admin && viewMode === "admin" && (
+          <section
+            style={{
+              padding: 16,
+              borderRadius: 12,
+              background: "#ffffff",
+              border: "1px solid #e2e8f0",
+              boxShadow: "0 4px 8px rgba(15,23,42,0.04)",
+              marginTop: 24
+            }}
+          >
+            <h2 style={{ fontSize: 18, marginBottom: 12 }}>All ETLs (admin)</h2>
+            {etls.length === 0 ? (
+              <p style={{ fontSize: 14, color: "#64748b" }}>
+                No ETLs yet. Upload your first one above.
+              </p>
+            ) : (
+              <div style={{ display: "grid", gap: 10 }}>
+                {etls.map((etl) => (
+                  <div
+                    key={etl.id}
+                    style={{
+                      padding: 10,
+                      borderRadius: 10,
+                      border: "1px solid #e2e8f0",
+                      background: "#ffffff"
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        marginBottom: 4
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 500 }}>
+                          {etl.name}
+                        </div>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "#64748b",
+                            marginTop: 2
+                          }}
+                        >
+                          v{etl.version}
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 6, fontSize: 11 }}>
+                        <span
+                          style={{
+                            padding: "2px 8px",
+                            borderRadius: 999,
+                            border: "1px solid #cbd5e1",
+                            background: etl.is_validated
+                              ? "rgba(34,197,94,0.12)"
+                              : "rgba(148,163,184,0.08)"
+                          }}
+                        >
+                          {etl.is_validated ? "validated" : "not validated"}
+                        </span>
+                        <span
+                          style={{
+                            padding: "2px 8px",
+                            borderRadius: 999,
+                            border: "1px solid #cbd5e1",
+                            background: etl.is_active
+                              ? "rgba(34,197,94,0.12)"
+                              : "rgba(148,163,184,0.06)"
+                          }}
+                        >
+                          {etl.is_active ? "active" : "inactive"}
+                        </span>
+                      </div>
+                    </div>
+                    {etl.description && (
+                      <p style={{ fontSize: 13, color: "#475569" }}>
+                        {etl.description}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </main>
     </div>
   );

@@ -5,10 +5,15 @@ from .models import User
 
 
 class UserSerializer(serializers.ModelSerializer):
+    is_admin = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'role', 'first_name', 'last_name']
+        fields = ['id', 'username', 'email', 'role', 'is_admin', 'first_name', 'last_name']
         read_only_fields = ['id']
+
+    def get_is_admin(self, obj):
+        return obj.is_admin
 
 
 
