@@ -1,0 +1,21 @@
+# Core Django
+Django==4.2.11
+djangorestframework==3.14.0
+
+# Database
+psycopg2-binary==2.9.9
+
+# Environment variables
+python-dotenv==1.0.1
+
+# Authentication
+djangorestframework-simplejwt==5.3.1
+
+# CORS (for React frontend)
+django-cors-headers==4.3.1
+
+# File handling
+Pillow==10.2.0
+
+# Development tools (optional)
+django-extensions==3.2.3
