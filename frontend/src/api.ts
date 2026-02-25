@@ -51,10 +51,30 @@ export async function fetchEtls() {
       Authorization: `Bearer ${token}`
     }
   });
+  const raw = await response.text();
+
   if (!response.ok) {
+    // Surface backend error details in the console for easier debugging
+    console.error("ETL list error:", response.status, raw);
     throw new Error("Failed to load ETLs");
   }
-  return response.json();
+
+  try {
+    const data = JSON.parse(raw);
+    // Handle both paginated and non-paginated DRF responses
+    if (Array.isArray(data)) {
+      return data;
+    }
+    if (Array.isArray((data as any).results)) {
+      return (data as any).results;
+    }
+    return [];
+  } catch (e) {
+    console.error("Invalid JSON from /etls/:", raw.slice(0, 200));
+    throw new Error(
+      "Server did not return valid JSON for ETLs. Is the Django API running on http://localhost:8000/api/etls/?"
+    );
+  }
 }
 
 export async function uploadEtl(formData: FormData) {
