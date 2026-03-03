@@ -34,7 +34,7 @@ class User(AbstractUser):
     def is_admin(self):
         """
         Treat both explicit role 'admin' and Django superusers as admins.
-        This makes your createsuperuser account behave as an admin in the API.
+        This makes  createsuperuser account behave as an admin in the API.
         """
         return self.is_superuser or self.role == 'admin'
 

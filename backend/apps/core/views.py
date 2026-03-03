@@ -49,8 +49,7 @@ class ETLViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """
-        Attach creator and do a very light validation on the uploaded file.
-        Full validation pipeline will be implemented later.
+        simple valid process ( will be updated later).
         """
         zip_file = self.request.FILES.get("zip_file")
 

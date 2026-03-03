@@ -5,7 +5,8 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from .models import User
 from .serializers import UserSerializer, UserRegistrationSerializer
 
-
+"""
+auto create the crud apis  """
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer

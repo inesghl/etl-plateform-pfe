@@ -22,7 +22,15 @@ from django.urls import path, include
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('apps.accounts.urls')),
-    path('api/', include('apps.core.urls')),
+   # path('api/accounts/', include('apps.accounts.urls')),
+
+   # path('api/', include('apps.core.urls')),
+
+    path('api/etls/', include('apps.etl.urls')),
+    path('api/executions/', include('apps.execution.urls')),
+    path('api/input_files/', include('apps.input_file.urls')),
+    path('api/output_files/', include('apps.output_file.urls')),
+
 ]
 
 if settings.DEBUG:

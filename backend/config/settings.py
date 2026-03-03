@@ -49,7 +49,12 @@ INSTALLED_APPS = [
 
     # Local apps
     'apps.accounts',
-    'apps.core',
+   # 'apps.core',
+    'apps.etl',
+    'apps.execution',
+    'apps.input_file',
+    'apps.output_file',
+
 ]
 
 MIDDLEWARE = [
