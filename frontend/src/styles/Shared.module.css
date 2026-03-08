@@ -1,0 +1,77 @@
+/* shared.module.css — reusable primitives */
+
+.card {
+  padding: 10px;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+}
+
+.badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid #cbd5e1;
+  font-size: 11px;
+}
+
+.badgeGreen {
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+}
+
+.badgeGray {
+  background: rgba(148, 163, 184, 0.08);
+  color: #64748b;
+}
+
+.btn {
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btnSecondary {
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+
+.btnSuccess {
+  background: rgba(34, 197, 94, 0.12);
+  color: #15803d;
+  border-color: #86efac;
+}
+
+.btnPrimary {
+  background: #0f172a;
+  color: white;
+  border-color: #0f172a;
+}
+
+.input {
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+.errorBanner {
+  margin-bottom: 16px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: 13px;
+}

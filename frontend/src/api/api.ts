@@ -8,90 +8,52 @@ export function setToken(token: string) {
   localStorage.setItem("access_token", token);
 }
 
-export async function fetchCurrentUser() {
+async function apiFetch(path: string, options: RequestInit = {}) {
   const token = getToken();
-  if (!token) {
-    throw new Error("No token");
-  }
-
-  const response = await fetch(`${API_BASE_URL}/users/me/`, {
+  const isFormData = options.body instanceof FormData;
+  const res = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
     headers: {
-      Authorization: `Bearer ${token}`
-    }
+      Authorization: `Bearer ${token}`,
+      ...(!isFormData ? { "Content-Type": "application/json" } : {}),
+      ...options.headers,
+    },
   });
-
-  if (!response.ok) {
-    throw new Error("Failed to load user");
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(text || `HTTP ${res.status}`);
   }
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
 
-  return response.json();
+export async function fetchCurrentUser() {
+  return apiFetch("/users/me/");
 }
 
 export async function login(username: string, password: string) {
-  const response = await fetch(`${API_BASE_URL}/auth/login/`, {
+  const data = await apiFetch("/auth/login/", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({ username, password })
+    body: JSON.stringify({ username, password }),
   });
-
-  if (!response.ok) {
-    throw new Error("Invalid credentials");
-  }
-
-  const data = await response.json();
   setToken(data.access);
 }
 
 export async function fetchEtls() {
-  const token = getToken();
-  const response = await fetch(`${API_BASE_URL}/etls/`, {
-    headers: {
-      Authorization: `Bearer ${token}`
-    }
-  });
-  const raw = await response.text();
-
-  if (!response.ok) {
-    // Surface backend error details in the console for easier debugging
-    console.error("ETL list error:", response.status, raw);
-    throw new Error("Failed to load ETLs");
-  }
-
-  try {
-    const data = JSON.parse(raw);
-    // Handle both paginated and non-paginated DRF responses
-    if (Array.isArray(data)) {
-      return data;
-    }
-    if (Array.isArray((data as any).results)) {
-      return (data as any).results;
-    }
-    return [];
-  } catch (e) {
-    console.error("Invalid JSON from /etls/:", raw.slice(0, 200));
-    throw new Error(
-      "Server did not return valid JSON for ETLs. Is the Django API running on http://localhost:8000/api/etls/?"
-    );
-  }
+  const data = await apiFetch("/etls/");
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.results)) return data.results;
+  return [];
 }
 
 export async function uploadEtl(formData: FormData) {
-  const token = getToken();
-  const response = await fetch(`${API_BASE_URL}/etls/`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`
-    },
-    body: formData
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(errorText || "Failed to upload ETL");
-  }
-
-  return response.json();
+  return apiFetch("/etls/", { method: "POST", body: formData });
 }
 
+export async function validateEtl(id: string) {
+  return apiFetch(`/etls/${id}/validate/`, { method: "POST" });
+}
+
+export async function activateEtl(id: string) {
+  return apiFetch(`/etls/${id}/activate/`, { method: "POST" });
+}

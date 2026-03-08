@@ -16,9 +16,9 @@ export function useAuth() {
       setError(null);
       const user = await fetchCurrentUser();
       setCurrentUser(user);
-    } catch (err) {
-      console.error(err);
-      setError("Could not load user information.");
+    } catch (err: any) {
+      // Token is expired or invalid — clear it and send back to login
+      logout();
     }
   }
 

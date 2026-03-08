@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { fetchEtls, uploadEtl } from "../api/api";
+import { fetchEtls, uploadEtl, validateEtl, activateEtl } from "../api/api";
 import { Etl } from "../types/etl";
 
 export function useEtls() {
@@ -23,7 +23,6 @@ export function useEtls() {
       setLoading(true);
       setError(null);
       await uploadEtl(formData);
-      await api.post("/etls/upload", formData);
       await loadEtls();
     } catch (err) {
       console.error(err);
@@ -33,5 +32,25 @@ export function useEtls() {
     }
   }
 
-  return { etls, loadEtls, upload, loading, error };
+  async function validate(id: string) {
+    try {
+      setError(null);
+      await validateEtl(id);
+      await loadEtls();
+    } catch (err: any) {
+      setError(err.message ?? "Validation failed.");
+    }
+  }
+
+  async function activate(id: string) {
+    try {
+      setError(null);
+      await activateEtl(id);
+      await loadEtls();
+    } catch (err: any) {
+      setError(err.message ?? "Activation failed.");
+    }
+  }
+
+  return { etls, loadEtls, upload, validate, activate, loading, error };
 }
