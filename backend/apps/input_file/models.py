@@ -2,7 +2,12 @@ from django.db import models
 from django.conf import settings
 import uuid
 
-
+def input_file_upload_path(instance, filename):
+    """
+    Upload files directly to the execution's inputs folder.
+    Path: executions/<execution_id>/inputs/<filename>
+    """
+    return f'executions/{instance.execution.id}/inputs/{filename}'
 class InputFile(models.Model):
     """
     Input file uploaded by user for an execution
@@ -31,7 +36,7 @@ class InputFile(models.Model):
         max_length=500,
         help_text="User's original filename"
     )
-    uploaded_file = models.FileField(upload_to='inputs/')
+    uploaded_file = models.FileField(upload_to=input_file_upload_path)
     file_size = models.BigIntegerField(help_text="Size in bytes")
 
     # Validation

@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     'apps.execution',
     'apps.input_file',
     'apps.output_file',
+    'apps.notification',
 
 ]
 

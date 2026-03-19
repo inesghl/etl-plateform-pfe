@@ -1,22 +1,21 @@
-import { useState } from "react";
-import { fetchEtls, uploadEtl, validateEtl, activateEtl } from "../api/api";
+import { useState, useCallback } from "react";
 import { Etl } from "../types/etl";
+import { fetchEtls, uploadEtl, validateEtl, activateEtl } from "../api/etl";
 
 export function useEtls() {
   const [etls, setEtls] = useState<Etl[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function loadEtls() {
+  const loadEtls = useCallback(async () => {
     try {
       setError(null);
       const data = await fetchEtls();
       setEtls(data);
-    } catch (err) {
-      console.error(err);
-      setError("Could not load ETLs.");
+    } catch (e: any) {
+      setError(e.message || "Failed to load ETLs");
     }
-  }
+  }, []);
 
   async function upload(formData: FormData) {
     try {
@@ -24,9 +23,9 @@ export function useEtls() {
       setError(null);
       await uploadEtl(formData);
       await loadEtls();
-    } catch (err) {
-      console.error(err);
-      setError("Upload failed. Check file and try again.");
+    } catch (e: any) {
+      setError(e.message || "Upload failed");
+      throw e;
     } finally {
       setLoading(false);
     }
@@ -37,8 +36,9 @@ export function useEtls() {
       setError(null);
       await validateEtl(id);
       await loadEtls();
-    } catch (err: any) {
-      setError(err.message ?? "Validation failed.");
+    } catch (e: any) {
+      setError(e.message || "Validation failed");
+      throw e;
     }
   }
 
@@ -47,10 +47,11 @@ export function useEtls() {
       setError(null);
       await activateEtl(id);
       await loadEtls();
-    } catch (err: any) {
-      setError(err.message ?? "Activation failed.");
+    } catch (e: any) {
+      setError(e.message || "Activation failed");
+      throw e;
     }
   }
 
-  return { etls, loadEtls, upload, validate, activate, loading, error };
+  return { etls, loading, error, loadEtls, upload, validate, activate };
 }

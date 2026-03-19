@@ -3,7 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import ETLViewSet
 
 router = DefaultRouter()
-router.register(r'', ETLViewSet, basename='etl')
+router.register(r"etls", ETLViewSet, basename="etl")
 
 urlpatterns = [
     path('', include(router.urls)),

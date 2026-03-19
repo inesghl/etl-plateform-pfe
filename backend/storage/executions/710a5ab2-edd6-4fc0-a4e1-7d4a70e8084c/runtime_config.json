@@ -1,0 +1,14 @@
+{
+  "execution_id": "710a5ab2-edd6-4fc0-a4e1-7d4a70e8084c",
+  "etl_id": "a4d877e1-aacb-4a6c-a523-138c7e306db5",
+  "work_directory": "C:\\etl\\platform\\backend\\storage\\executions\\710a5ab2-edd6-4fc0-a4e1-7d4a70e8084c",
+  "inputs": {},
+  "outputs": {
+    "directory": "C:\\etl\\platform\\backend\\storage\\executions\\710a5ab2-edd6-4fc0-a4e1-7d4a70e8084c\\outputs",
+    "deleted": "C:\\etl\\platform\\backend\\storage\\executions\\710a5ab2-edd6-4fc0-a4e1-7d4a70e8084c\\deleted",
+    "archive": "C:\\etl\\platform\\backend\\storage\\executions\\710a5ab2-edd6-4fc0-a4e1-7d4a70e8084c\\archive"
+  },
+  "config": {
+    "entry_point": "main.py"
+  }
+}

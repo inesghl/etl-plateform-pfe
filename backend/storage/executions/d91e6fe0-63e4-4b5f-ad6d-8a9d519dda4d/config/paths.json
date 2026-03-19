@@ -1,0 +1,7 @@
+{
+  "input_excel": "data/input.xlsx",
+  "output_excel": "outputs/final_outputs.xlsx",
+  "deleted_rows": "deleted/deleted_rows.xlsx",
+  "logs_dir": "logs",
+  "input_path": "C:\\etl\\platform\\backend\\storage\\executions\\d91e6fe0-63e4-4b5f-ad6d-8a9d519dda4d\\inputs\\deleted_rows.xlsx"
+}

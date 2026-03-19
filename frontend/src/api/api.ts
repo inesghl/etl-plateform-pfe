@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://localhost:8000/api";
+const API_BASE = "http://localhost:8000/api";
 
 export function getToken() {
   return localStorage.getItem("access_token");
@@ -8,10 +8,15 @@ export function setToken(token: string) {
   localStorage.setItem("access_token", token);
 }
 
-async function apiFetch(path: string, options: RequestInit = {}) {
+export function removeToken() {
+  localStorage.removeItem("access_token");
+}
+
+export async function apiFetch(path: string, options: RequestInit = {}) {
   const token = getToken();
   const isFormData = options.body instanceof FormData;
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+
+  const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers: {
       Authorization: `Bearer ${token}`,
@@ -19,41 +24,33 @@ async function apiFetch(path: string, options: RequestInit = {}) {
       ...options.headers,
     },
   });
+
   if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `HTTP ${res.status}`);
+    let errorMessage = `HTTP ${res.status}`;
+    try {
+      const errorData = await res.json();
+      if (errorData.detail) {
+        errorMessage = errorData.detail;
+      } else if (errorData.errors) {
+        errorMessage = Array.isArray(errorData.errors)
+          ? errorData.errors.join(", ")
+          : JSON.stringify(errorData.errors);
+      } else if (errorData.zip_file) {
+        errorMessage = Array.isArray(errorData.zip_file)
+          ? errorData.zip_file.join(", ")
+          : errorData.zip_file;
+      }
+    } catch {
+      const text = await res.text();
+      if (text && text.length < 200) {
+        errorMessage = text;
+      }
+    }
+    throw new Error(errorMessage);
   }
+
   const text = await res.text();
   return text ? JSON.parse(text) : null;
 }
 
-export async function fetchCurrentUser() {
-  return apiFetch("/users/me/");
-}
-
-export async function login(username: string, password: string) {
-  const data = await apiFetch("/auth/login/", {
-    method: "POST",
-    body: JSON.stringify({ username, password }),
-  });
-  setToken(data.access);
-}
-
-export async function fetchEtls() {
-  const data = await apiFetch("/etls/");
-  if (Array.isArray(data)) return data;
-  if (Array.isArray(data?.results)) return data.results;
-  return [];
-}
-
-export async function uploadEtl(formData: FormData) {
-  return apiFetch("/etls/", { method: "POST", body: formData });
-}
-
-export async function validateEtl(id: string) {
-  return apiFetch(`/etls/${id}/validate/`, { method: "POST" });
-}
-
-export async function activateEtl(id: string) {
-  return apiFetch(`/etls/${id}/activate/`, { method: "POST" });
-}
+export { API_BASE };

@@ -1,0 +1,16 @@
+{
+  "execution_id": "2c98bdb2-f7c8-4798-8547-826d1a79d5f9",
+  "etl_id": "a4d877e1-aacb-4a6c-a523-138c7e306db5",
+  "work_directory": "C:\\etl\\platform\\backend\\storage\\executions\\2c98bdb2-f7c8-4798-8547-826d1a79d5f9",
+  "inputs": {
+    "input": "C:\\etl\\platform\\backend\\storage\\executions\\2c98bdb2-f7c8-4798-8547-826d1a79d5f9\\inputs\\deleted_rows.xlsx"
+  },
+  "outputs": {
+    "directory": "C:\\etl\\platform\\backend\\storage\\executions\\2c98bdb2-f7c8-4798-8547-826d1a79d5f9\\outputs",
+    "deleted": "C:\\etl\\platform\\backend\\storage\\executions\\2c98bdb2-f7c8-4798-8547-826d1a79d5f9\\deleted",
+    "archive": "C:\\etl\\platform\\backend\\storage\\executions\\2c98bdb2-f7c8-4798-8547-826d1a79d5f9\\archive"
+  },
+  "config": {
+    "entry_point": "main.py"
+  }
+}

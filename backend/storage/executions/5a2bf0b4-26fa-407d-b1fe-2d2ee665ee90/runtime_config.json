@@ -1,0 +1,12 @@
+{
+  "execution_id": "5a2bf0b4-26fa-407d-b1fe-2d2ee665ee90",
+  "etl_id": "2c201893-4e82-4d7a-be03-547c4def5207",
+  "work_directory": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Documents\\etl-platform -version1-basicLogic\\backend\\storage\\executions\\5a2bf0b4-26fa-407d-b1fe-2d2ee665ee90",
+  "inputs": {},
+  "outputs": {
+    "directory": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Documents\\etl-platform -version1-basicLogic\\backend\\storage\\executions\\5a2bf0b4-26fa-407d-b1fe-2d2ee665ee90\\outputs"
+  },
+  "config": {
+    "entry_point": "main.py"
+  }
+}

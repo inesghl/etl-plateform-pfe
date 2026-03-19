@@ -1,0 +1,12 @@
+{
+  "execution_id": "c00636ed-8ace-4ee9-8d4c-c4d3c6d918d9",
+  "etl_id": "83f08ccb-be33-42f2-8d89-c010ce63b300",
+  "work_directory": "C:\\etl\\platform\\backend\\storage\\executions\\c00636ed-8ace-4ee9-8d4c-c4d3c6d918d9",
+  "inputs": {},
+  "outputs": {
+    "directory": "C:\\etl\\platform\\backend\\storage\\executions\\c00636ed-8ace-4ee9-8d4c-c4d3c6d918d9\\outputs"
+  },
+  "config": {
+    "entry_point": "main.py"
+  }
+}

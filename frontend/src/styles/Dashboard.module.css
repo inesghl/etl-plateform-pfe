@@ -1,33 +1,70 @@
 .page {
   min-height: 100vh;
   background: #f8fafc;
-  color: #0f172a;
-  padding: 24px 16px;
-}
-
-.main {
-  max-width: 960px;
-  margin: 0 auto;
+  font-family: system-ui, -apple-system, sans-serif;
 }
 
 .errorBanner {
-  margin-bottom: 16px;
+  margin-bottom: 14px;
   padding: 10px;
   border-radius: 8px;
   background: #fee2e2;
   color: #b91c1c;
   font-size: 13px;
-}
-
-.listSection {
-  padding: 16px;
-  border-radius: 12px;
-  background: #ffffff;
-  border: 1px solid #e2e8f0;
-  box-shadow: 0 4px 8px rgba(15, 23, 42, 0.04);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .sectionTitle {
-  font-size: 18px;
-  margin-bottom: 12px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  letter-spacing: -0.01em;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.sectionHeader .sectionTitle {
+  margin: 0;
+  border: none;
+  padding: 0;
+}
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: center;
+  justifycontent: center;
+  z-index: 100;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.modalTitle {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.closeButton {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #94a3b8;
+  line-height: 1;
 }

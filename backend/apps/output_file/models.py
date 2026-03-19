@@ -30,7 +30,8 @@ class OutputFile(models.Model):
         ordering = ['created_at']
         verbose_name = 'Output File'
         verbose_name_plural = 'Output Files'
-
+        # ✅ Prevent duplicate filenames for same execution
+        unique_together = [['execution', 'filename']]
     def __str__(self):
         return self.filename
 
