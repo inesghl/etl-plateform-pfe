@@ -74,12 +74,11 @@ class ExecutionViewSet(viewsets.ModelViewSet):
         """
         Trigger the execution.
 
-        For now this only performs validation and simulates a quick successful run.
-        The actual uv/venv logic will be plugged into this action later.
         """
         execution: Execution = self.get_object()
         etl = execution.etl
-
+        """  prevent rerun for now  """
+       #
         # Basic guards
         if execution.status not in ("PENDING", "VALIDATED"):
             return Response(
@@ -94,7 +93,9 @@ class ExecutionViewSet(viewsets.ModelViewSet):
             execution.input_files.values_list("file_key", flat=True)
         )
         for key, spec in requirements.items():
-            if spec.get("required", False) and key not in existing_keys:
+            files_count = execution.input_files.filter(file_key=key).count()
+
+            if spec.get("required", False) and files_count == 0:
                 missing_required.append(key)
 
         if missing_required:
@@ -162,8 +163,7 @@ class ExecutionViewSet(viewsets.ModelViewSet):
 
         for key, spec in input_requirements.items():
             # Check if user uploaded this input
-            user_upload = next((u for u in user_uploads if u['file_key'] == key), None)
-
+            user_uploads_for_key = [u for u in user_uploads if u['file_key'] == key]
             # Check if default exists matching the key
             default_file = next((d for d in default_inputs if key.lower() in d['filename'].lower()), None)
 
@@ -171,10 +171,9 @@ class ExecutionViewSet(viewsets.ModelViewSet):
                 'required': spec.get('required', False),
                 'description': spec.get('description', ''),
                 'extensions': spec.get('extensions', []),
-                'user_upload': user_upload,
+                'user_uploads': user_uploads_for_key,
                 'default_available': default_file,
-                'status': 'uploaded' if user_upload else ('default' if default_file else 'missing')
-            }
+                'status': 'uploaded' if user_uploads_for_key else ('default' if default_file else 'missing') }
 
         return Response({
             'input_requirements': input_requirements,

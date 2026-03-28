@@ -15,26 +15,7 @@ class InputFileViewSet(viewsets.ModelViewSet):
         return InputFile.objects.filter(execution__launched_by=user).select_related('execution', 'execution__etl')
 
     def create(self, request, *args, **kwargs):
-        """Handle file upload with automatic replacement"""
 
-        # Extract data BEFORE validation
-        execution_id = request.data.get('execution')
-        file_key = request.data.get('file_key')
-
-        # ✅ DELETE old files BEFORE creating new one
-        if execution_id and file_key:
-            old_files = InputFile.objects.filter(
-                execution_id=execution_id,
-                file_key=file_key
-            )
-
-            for old_file in old_files:
-                print(f"[INPUT_FILE] Deleting old file: {old_file.original_filename}")
-                if old_file.uploaded_file:
-                    old_file.uploaded_file.delete(save=False)
-                old_file.delete()
-
-        # Now proceed with normal creation
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):

@@ -58,7 +58,6 @@ class InputFile(models.Model):
     class Meta:
         db_table = 'input_files'
         ordering = ['uploaded_at']
-        unique_together = ['execution', 'file_key']
 
     def __str__(self):
         return f"{self.file_key}: {self.original_filename}"
