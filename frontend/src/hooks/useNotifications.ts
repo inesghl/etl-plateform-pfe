@@ -1,11 +1,19 @@
-import { useState, useCallback } from "react";
+// hooks/useNotifications.ts
+import { useState, useCallback, useEffect } from "react";
 import { Notification } from "../types/notification";
-import { fetchNotifications, markNotificationRead, markAllNotificationsRead } from "../api/notification";
+import {
+  fetchNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
+  deleteNotification,
+} from "../api/notification";
+
+const POLL_INTERVAL_MS = 15_000; // refresh every 15 s to catch new notifications
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading]             = useState(false);
+  const [error, setError]                 = useState<string | null>(null);
 
   const loadNotifications = useCallback(async () => {
     try {
@@ -13,33 +21,52 @@ export function useNotifications() {
       const data = await fetchNotifications();
       setNotifications(data);
     } catch (e: any) {
-      // Silently fail if notifications endpoint doesn't exist
-      console.warn("Notifications not available:", e.message);
+      console.warn("Notifications unavailable:", e.message);
       setNotifications([]);
     }
   }, []);
 
+  // Auto-poll so in-app notifications appear without a manual refresh
+  useEffect(() => {
+    loadNotifications();
+    const id = setInterval(loadNotifications, POLL_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [loadNotifications]);
+
   async function markRead(id: string) {
     try {
-      setError(null);
       await markNotificationRead(id);
-      await loadNotifications();
+      // Optimistic update — no need to refetch
+      setNotifications(prev =>
+        prev.map(n => n.id === id ? { ...n, is_read: true } : n)
+      );
     } catch (e: any) {
-      console.error("Failed to mark notification as read:", e);
+      console.error("markRead failed:", e);
     }
   }
 
   async function markAllRead() {
     try {
-      setError(null);
       await markAllNotificationsRead();
-      await loadNotifications();
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     } catch (e: any) {
-      console.error("Failed to mark all as read:", e);
+      console.error("markAllRead failed:", e);
+    }
+  }
+
+  async function remove(id: string) {
+    try {
+      await deleteNotification(id);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    } catch (e: any) {
+      console.error("delete notification failed:", e);
     }
   }
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
-  return { notifications, loading, error, unreadCount, loadNotifications, markRead, markAllRead };
+  return {
+    notifications, loading, error, unreadCount,
+    loadNotifications, markRead, markAllRead, remove,
+  };
 }

@@ -13,7 +13,17 @@ export async function fetchEtl(id: string): Promise<Etl> {
 }
 
 export async function uploadEtl(formData: FormData) {
+  // formData already contains name, description, version, zip_file,
+  // entry_point_path, config_file_path, requirements_path, python_version
   return apiFetch("/etls/", { method: "POST", body: formData });
+}
+
+export async function readEtlConfig(id: string): Promise<{
+  config_file_path: string;
+  parsed: Record<string, any>;
+  raw: string;
+}> {
+  return apiFetch(`/etls/${id}/read_config/`);
 }
 
 export async function validateEtl(id: string) {

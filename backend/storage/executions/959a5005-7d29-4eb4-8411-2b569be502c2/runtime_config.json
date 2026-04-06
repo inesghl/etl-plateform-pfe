@@ -1,0 +1,31 @@
+{
+  "execution_id": "959a5005-7d29-4eb4-8411-2b569be502c2",
+  "etl_id": "f745a288-c43e-47d1-9799-1449c01b12cb",
+  "work_directory": "C:\\etl\\platform\\backend\\storage\\executions\\959a5005-7d29-4eb4-8411-2b569be502c2",
+  "inputs": {},
+  "outputs": {
+    "directory": "C:\\etl\\platform\\backend\\storage\\executions\\959a5005-7d29-4eb4-8411-2b569be502c2\\outputs",
+    "deleted": "C:\\etl\\platform\\backend\\storage\\executions\\959a5005-7d29-4eb4-8411-2b569be502c2\\deleted",
+    "archive": "C:\\etl\\platform\\backend\\storage\\executions\\959a5005-7d29-4eb4-8411-2b569be502c2\\archive"
+  },
+  "config": {
+    "rg": {
+      "DF_A": {
+        "amount_min": 0
+      },
+      "DF_B": {
+        "amount_min": 10
+      }
+    },
+    "project": {
+      "name": "orf_facture",
+      "version": "0.1.0",
+      "requires-python": "==3.12.1"
+    },
+    "execution": {
+      "log_level": "INFO",
+      "deduplicate": true
+    }
+  },
+  "config_overrides": {}
+}

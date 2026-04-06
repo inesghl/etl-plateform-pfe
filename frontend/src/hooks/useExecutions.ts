@@ -1,6 +1,13 @@
 import { useState, useCallback } from "react";
 import { Execution } from "../types/execution";
-import { fetchExecutions, createExecution, launchExecution } from "../api/execution";
+import {
+  fetchExecutions,
+  createExecution,
+  launchExecution,
+  prepareExecution,
+  updateExecutionConfig,
+  sendExecutionReport,
+} from "../api/execution";
 
 export function useExecutions() {
   const [executions, setExecutions] = useState<Execution[]>([]);
@@ -32,6 +39,14 @@ export function useExecutions() {
     }
   }
 
+  async function prepare(id: string) {
+    return prepareExecution(id);
+  }
+
+  async function updateConfig(id: string, body: Parameters<typeof updateExecutionConfig>[1]) {
+    return updateExecutionConfig(id, body);
+  }
+
   async function launch(id: string) {
     try {
       setLoading(true);
@@ -46,5 +61,12 @@ export function useExecutions() {
     }
   }
 
-  return { executions, loading, error, loadExecutions, create, launch };
+  async function sendReport(id: string, email: string) {
+    return sendExecutionReport(id, email);
+  }
+
+  return {
+    executions, loading, error,
+    loadExecutions, create, prepare, updateConfig, launch, sendReport,
+  };
 }

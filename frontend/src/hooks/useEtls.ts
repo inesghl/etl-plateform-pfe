@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { Etl } from "../types/etl";
-import { fetchEtls, uploadEtl, validateEtl, activateEtl } from "../api/etl";
+import { fetchEtls, uploadEtl, validateEtl, activateEtl, readEtlConfig } from "../api/etl";
 
 export function useEtls() {
   const [etls, setEtls] = useState<Etl[]>([]);
@@ -21,8 +21,9 @@ export function useEtls() {
     try {
       setLoading(true);
       setError(null);
-      await uploadEtl(formData);
+      const etl = await uploadEtl(formData);
       await loadEtls();
+      return etl; // Return so UploadEtlForm can show config preview
     } catch (e: any) {
       setError(e.message || "Upload failed");
       throw e;
@@ -34,8 +35,9 @@ export function useEtls() {
   async function validate(id: string) {
     try {
       setError(null);
-      await validateEtl(id);
+      const result = await validateEtl(id);
       await loadEtls();
+      return result;
     } catch (e: any) {
       setError(e.message || "Validation failed");
       throw e;
@@ -53,5 +55,9 @@ export function useEtls() {
     }
   }
 
-  return { etls, loading, error, loadEtls, upload, validate, activate };
+  async function getConfig(id: string) {
+    return readEtlConfig(id);
+  }
+
+  return { etls, loading, error, loadEtls, upload, validate, activate, getConfig };
 }

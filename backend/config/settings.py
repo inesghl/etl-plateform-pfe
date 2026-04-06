@@ -186,3 +186,11 @@ SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
+
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+EMAIL_HOST     = "smtp.your-provider.com"
+EMAIL_PORT     = 587
+EMAIL_USE_TLS  = True
+EMAIL_HOST_USER     = "ines.ghali@amaris.com"
+EMAIL_HOST_PASSWORD = "L2$R4Px#I@tu"
+DEFAULT_FROM_EMAIL  = "noreply@etl-platform.local"

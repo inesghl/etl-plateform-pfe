@@ -1,13 +1,12 @@
-export type NotificationLevel = "info" | "warning" | "error" | "success";
+// types/notification.ts
+export type NotificationType = "success" | "error" | "info" | "warning";
 
 export type Notification = {
   id: string;
-  level: NotificationLevel;
   title: string;
   message: string;
+  notification_type: NotificationType;
   is_read: boolean;
   created_at: string;
-  user?: number;
-  etl?: string;
-  execution?: string;
+  execution_id?: string | null;
 };

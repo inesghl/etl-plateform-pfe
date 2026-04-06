@@ -9,7 +9,7 @@ import { Button } from "../components/common/Button";
 import { UploadEtlForm } from "../components/etl/UploadEtlForm";
 import { EtlList } from "../components/etl/EtlList";
 import { ExecutionList } from "../components/execution/ExecutionList";
-import { LaunchModal } from "../components/execution/LaunchModal";
+import LaunchModal from "../components/execution/LaunchModal";
 import { LogModal } from "../components/execution/LogModal";
 import { OutputsPanel } from "../components/outputFile/OutputsPanel";
 import { NotificationList } from "../components/notification/NotificationList";
@@ -19,22 +19,22 @@ import { useEtls } from "../hooks/useEtls";
 import { useExecutions } from "../hooks/useExecutions";
 import { useNotifications } from "../hooks/useNotifications";
 import styles from "../styles/Dashboard.module.css";
-
+import { InputPathViewer } from "../components/execution/InputPathViewer";
 type Props = {
   currentUser: User;
   onLogout: () => void;
 };
 
 function Dashboard({ currentUser, onLogout }: Props) {
-  const { etls, loading: etlLoading, error: etlError, loadEtls, upload, validate, activate } = useEtls();
+const { etls, loading: etlLoading, error: etlError, loadEtls, upload, validate, activate, getConfig } = useEtls();
   const { executions, loadExecutions, create: createExecution, launch: launchExecution } = useExecutions();
-  const { notifications, unreadCount, loadNotifications, markRead, markAllRead } = useNotifications();
+  const { notifications, unreadCount, loadNotifications, markRead, markAllRead , remove } = useNotifications();
 
   const [tab, setTab] = useState("etls");
   const [launchEtl, setLaunchEtl] = useState<Etl | null>(null);
   const [logExec, setLogExec] = useState<Execution | null>(null);
   const [outputExec, setOutputExec] = useState<Execution | null>(null);
-  const [inputExec, setInputExec] = useState<Execution | null>(null); // ✅ ONE variable only!
+  const [inputExec, setInputExec] = useState<Execution | null>(null); //
 
   useEffect(() => {
     loadEtls();
@@ -84,9 +84,13 @@ function Dashboard({ currentUser, onLogout }: Props) {
         )}
 
         {/* Upload Tab (Admin only) */}
-        {tab === "upload" && isAdmin && (
-          <UploadEtlForm onUpload={upload} loading={etlLoading} />
-        )}
+       {tab === "upload" && isAdmin && (
+  <UploadEtlForm
+    onUpload={upload}
+    onGetConfig={getConfig}
+    loading={etlLoading}
+  />
+)}
 
         {/* Executions Tab */}
         {tab === "executions" && (
@@ -107,19 +111,34 @@ function Dashboard({ currentUser, onLogout }: Props) {
         )}
 
         {/* Notifications Tab */}
-        {tab === "notifications" && (
-          <>
-            <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>Notifications ({notifications.length})</h2>
-              {unreadCount > 0 && (
-                <Button small variant="ghost" onClick={markAllRead}>
-                  Mark all read
-                </Button>
-              )}
-            </div>
-            <NotificationList notifications={notifications} onMarkRead={markRead} />
-          </>
+       {tab === "notifications" && (
+  <>
+    <div className={styles.sectionHeader}>
+      <h2 className={styles.sectionTitle}>
+        Notifications ({notifications.length})
+        {unreadCount > 0 && (
+          <span style={{
+            marginLeft: 8, fontSize: 12, fontWeight: 600,
+            background: "#dc2626", color: "#fff",
+            padding: "1px 7px", borderRadius: 99,
+          }}>
+            {unreadCount} unread
+          </span>
         )}
+      </h2>
+      {unreadCount > 0 && (
+        <Button small variant="ghost" onClick={markAllRead}>
+          Mark all read
+        </Button>
+      )}
+    </div>
+    <NotificationList
+      notifications={notifications}
+      onMarkRead={markRead}
+      onDeleted={remove}       // ← new
+    />
+  </>
+)}
       </PageLayout>
 
       {/* Modals */}
@@ -153,11 +172,11 @@ function Dashboard({ currentUser, onLogout }: Props) {
 
       {/* ✅ Input File Viewer - Use inputExec */}
       {inputExec && (
-        <InputFileViewer
-          execution={inputExec}
-          onClose={() => setInputExec(null)}
-        />
-      )}
+  <InputPathViewer
+    execution={inputExec}
+    onClose={() => setInputExec(null)}
+  />
+)}
     </div>
   );
 }

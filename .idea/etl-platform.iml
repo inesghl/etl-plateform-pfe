@@ -1,7 +1,80 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <module type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
-    <content url="file://$MODULE_DIR$" />
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/backend" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/backend/apps" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/backend/storage/etl_venvs/c3cfd32e-05e9-40e8-bef3-d0c0bcc8a79d/Lib/site-packages" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/backend/storage/etl_venvs/c3cfd32e-05e9-40e8-bef3-d0c0bcc8a79d/Lib/site-packages/pip/_vendor" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/03311292-89e6-44b6-9d24-c239af6a0183/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/05dab941-c7c3-4aa6-9069-dd2ef50bfdbc/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/0c7176f1-61cf-4b3a-9577-6f3738e4b830/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/16110221-0ec6-492c-b144-0aad08f30244/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/16cdc4bf-7603-4f48-a3e9-0a627ba7b775/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/1afab2ec-6fc6-4e12-9cae-61257cb7db7c/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/1e3685c2-c288-4324-bcda-9eada823d91e/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/2bb1d0f0-d7fd-407e-a8b1-fac8d20ea8c2/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/2c98bdb2-f7c8-4798-8547-826d1a79d5f9/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/2cea8cfe-f506-4d69-aad9-ffcd2bcda049/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/30816a48-a8fb-4379-a874-1661eef2c74f/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/388596b0-5e51-453e-a3b6-13d5aa9ec23c/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/3923c870-9e47-4c99-89ab-b236b3025621/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/3ae8c649-f934-4676-8a04-a66f546ad597/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/3b1a0a8b-87ec-44dc-9fb8-4f8a0e854f9a/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/3d4c3c55-6c58-4e76-a71a-58aaaa9b8cd3/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/42814df2-16da-4e84-b01e-d464d1bd9c47/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/43a7d109-9fd1-4844-922a-b2d067bba0e4/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/4a18c540-8b5c-4ab1-b75f-f9c0a391a313/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/4e561896-2685-4a88-ab22-580832486e49/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/5054851a-48c2-4da3-a8fc-7f373225ac15/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/5a2bf0b4-26fa-407d-b1fe-2d2ee665ee90/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/5da8b051-7754-488a-9695-386a00d1c0b7/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/64cc1285-f76c-4d61-a521-f4526741d6fd/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/69df4140-115f-40f4-a7ce-6aa035e097e1/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/6ab689f2-3f19-4ccb-82cf-c5c42685f32b/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/6aee9e56-1499-4b6d-869d-0a3d8f2fc59d/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/710a5ab2-edd6-4fc0-a4e1-7d4a70e8084c/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/73a78c04-6210-45a2-8c41-c2c762680fb0/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/7419dd13-e1e5-4127-940a-e0e40f5b62ee/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/79dcee4e-9030-4d24-a02a-42345310a712/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/7eef2b3e-fc1c-46bb-9b09-7e381a63b751/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/84fd364b-501d-4211-abd1-e36fbccb1674/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/89e70ea6-2ff5-4e41-a688-ad0bd0647d86/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/8b076368-7109-4ef6-bb35-795eb70eff61/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/8bd598a2-c8ee-4c51-bd43-c9163a1d15bf/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/8c472274-b925-49fb-af38-67b8fec59153/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/959a5005-7d29-4eb4-8411-2b569be502c2/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/998c0038-932b-4d85-8e59-2b35c4c85ae2/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/9df7ad52-931d-4418-b9bb-b2e12dd76c48/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/a443f61f-97f5-46a8-8e08-e3229de24e93/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/a4bc1cf2-d975-4ea8-b78a-5fff16f66943/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/aa28b9f1-221d-4010-b33a-c4699788b4ce/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/b1c660e6-b3ce-484d-b136-d62e2379d01e/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/b2f55585-0024-48e6-a509-b47c30a2d2e4/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/b46b0332-6e96-42ec-8ace-66a3b9716566/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/b7c1decd-a2c7-4674-999f-b32159870b1d/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/b9c75da9-204f-4f9c-94ba-27aa42915f7c/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/ba78e828-b63c-4f4b-b057-f535b972ef85/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/ba85c15f-92e3-4385-8548-a5f7c6e83098/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/c00636ed-8ace-4ee9-8d4c-c4d3c6d918d9/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/c248efa0-f21b-45f0-8866-adb564330d20/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/cc4405e5-dfe0-4cba-be06-790c96c2736a/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/ce5d4850-be85-40fe-9bf4-56c1dcfe6894/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/d63ce6d6-57c5-49d7-b9b7-fafeb3ea0cc2/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/d65c30c0-883a-40d2-a323-95a1b432387e/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/d91e6fe0-63e4-4b5f-ad6d-8a9d519dda4d/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/d949fdad-f7de-46a0-a791-9cacf252f97e/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/dd813822-17b5-4bf7-ae82-c24963e46ba2/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/e4f25095-4c04-4c19-a7ea-68d13574882c/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/e5b3f510-c38a-49c7-96db-b41d56bc5c62/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/ed7aaa2b-e8c3-4440-9211-5946035ef0d1/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/f179c0df-72d3-4231-8a07-ee4bfe136eca/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/fd0717c6-f894-49d2-b98a-c0994a80048b/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/extracted/9aa376f5-d26e-4182-b2f1-3c01e12798c4/etl_facture/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/extracted/d6db82ae-5640-4209-99bc-aed2bf03ca51/etl_facture/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/backend/storage/extracted/e7951a19-ae18-4aac-aa33-28104f79ef75/etl_facture/.venv" />
+    </content>
     <orderEntry type="jdk" jdkName="Python 3.12" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>

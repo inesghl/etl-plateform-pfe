@@ -19,6 +19,13 @@ export type Etl = {
   description: string;
   version: string;
   zip_file?: string;
+
+  // Admin-configured paths
+  entry_point_path: string;
+  config_file_path: string;
+  requirements_path: string;
+  python_version: string;
+
   is_active: boolean;
   is_validated: boolean;
   validation_errors: string[];

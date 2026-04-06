@@ -1,3 +1,4 @@
+// api/notification.ts
 import { apiFetch } from "./api";
 import { Notification } from "../types/notification";
 
@@ -6,22 +7,15 @@ export async function fetchNotifications(): Promise<Notification[]> {
   return Array.isArray(data) ? data : data?.results ?? [];
 }
 
-export async function markNotificationRead(id: string) {
-  return apiFetch(`/notifications/${id}/`, {
-    method: "PATCH",
-    body: JSON.stringify({ is_read: true }),
-  });
+export async function markNotificationRead(id: string): Promise<void> {
+  await apiFetch(`/notifications/${id}/mark_read/`, { method: "PATCH" });
 }
 
-export async function markAllNotificationsRead() {
-  const notifications = await fetchNotifications();
-  await Promise.all(
-    notifications
-      .filter((n) => !n.is_read)
-      .map((n) => markNotificationRead(n.id))
-  );
+export async function markAllNotificationsRead(): Promise<void> {
+  // Single bulk endpoint — no N-request loop
+  await apiFetch("/notifications/mark_all_read/", { method: "POST" });
 }
 
-export async function deleteNotification(id: string) {
-  return apiFetch(`/notifications/${id}/`, { method: "DELETE" });
+export async function deleteNotification(id: string): Promise<void> {
+  await apiFetch(`/notifications/${id}/`, { method: "DELETE" });
 }
