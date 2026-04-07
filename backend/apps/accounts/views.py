@@ -1,12 +1,14 @@
+# accounts/views.py
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from .models import User
-from .serializers import UserSerializer, UserRegistrationSerializer
 
-"""
-auto create the crud apis  """
+from .models import User, UserGroup
+from .serializers import UserSerializer, UserRegistrationSerializer, UserGroupSerializer
+from ..accounts.permissions import IsAdmin
+
+
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
     serializer_class = UserSerializer
@@ -17,13 +19,44 @@ class UserViewSet(viewsets.ModelViewSet):
         serializer = UserRegistrationSerializer(data=request.data)
         if serializer.is_valid():
             user = serializer.save()
-            return Response(
-                UserSerializer(user).data,
-                status=status.HTTP_201_CREATED
-            )
+            return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=False, methods=['get'])
     def me(self, request):
-        serializer = UserSerializer(request.user)
-        return Response(serializer.data)
+        return Response(UserSerializer(request.user).data)
+
+
+class UserGroupViewSet(viewsets.ModelViewSet):
+    """
+    Admin-only CRUD for user groups.
+    GET    /groups/           — list all groups
+    POST   /groups/           — create group  { name, description, member_ids }
+    GET    /groups/<id>/      — retrieve
+    PATCH  /groups/<id>/      — update name/description/members
+    DELETE /groups/<id>/      — delete
+    POST   /groups/<id>/add_members/     { user_ids: [...] }
+    POST   /groups/<id>/remove_members/  { user_ids: [...] }
+    """
+    queryset = UserGroup.objects.prefetch_related('members').all()
+    serializer_class = UserGroupSerializer
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def add_members(self, request, pk=None):
+        group: UserGroup = self.get_object()
+        user_ids = request.data.get('user_ids', [])
+        users = User.objects.filter(id__in=user_ids)
+        group.members.add(*users)
+        return Response(UserGroupSerializer(group).data)
+
+    @action(detail=True, methods=['post'])
+    def remove_members(self, request, pk=None):
+        group: UserGroup = self.get_object()
+        user_ids = request.data.get('user_ids', [])
+        users = User.objects.filter(id__in=user_ids)
+        group.members.remove(*users)
+        return Response(UserGroupSerializer(group).data)

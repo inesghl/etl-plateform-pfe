@@ -1,3 +1,5 @@
+import {UserGroup} from "./group";
+
 export type InputSpec = {
   required?: boolean;
   extensions?: string[];
@@ -25,7 +27,8 @@ export type Etl = {
   config_file_path: string;
   requirements_path: string;
   python_version: string;
-
+  allowed_groups:  UserGroup[];
+  is_restricted : boolean;
   is_active: boolean;
   is_validated: boolean;
   validation_errors: string[];

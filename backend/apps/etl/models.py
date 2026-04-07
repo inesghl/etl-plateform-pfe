@@ -1,3 +1,4 @@
+# etl/models.py
 from django.db import models
 from django.conf import settings
 import uuid
@@ -13,37 +14,28 @@ class ETL(models.Model):
     zip_file = models.FileField(upload_to='etls/')
     extracted_path = models.CharField(max_length=500, blank=True)
 
-    # Admin-provided filenames — searched recursively in the ZIP
-    entry_point_path = models.CharField(
-        max_length=500, blank=True,
-        help_text="Filename of the entry script, e.g. 'main.py'"
-    )
-    config_file_path = models.CharField(
-        max_length=500, blank=True,
-        help_text="Filename of the config file, e.g. 'config.json'"
-    )
-    requirements_path = models.CharField(
-        max_length=500, blank=True,
-        help_text="Filename of requirements file, e.g. 'requirements.txt'"
-    )
+    entry_point_path = models.CharField(max_length=500, blank=True)
+    config_file_path = models.CharField(max_length=500, blank=True)
+    requirements_path = models.CharField(max_length=500, blank=True)
     python_version = models.CharField(max_length=20, blank=True)
 
-    # Resolved absolute paths after search
     resolved_entry_point = models.CharField(max_length=1000, blank=True)
     resolved_config_file = models.CharField(max_length=1000, blank=True)
     resolved_requirements = models.CharField(max_length=1000, blank=True)
 
-    # Parsed config from the config file
     config = models.JSONField(default=dict, blank=True)
+    path_classifications = models.JSONField(default=dict, blank=True)
 
-    # Admin classifies which config keys are inputs/outputs
-    # { "key_name": "input" | "output" | "other" }
-    path_classifications = models.JSONField(
-        default=dict, blank=True,
-        help_text="Admin classifies which config keys point to input/output paths"
+    # ── Access control ────────────────────────────────────────────
+    # Empty = visible to all active users.
+    # One or more groups = only members of those groups can see/run it.
+    allowed_groups = models.ManyToManyField(
+        'accounts.UserGroup',
+        related_name='etls',
+        blank=True,
+        help_text="Leave empty to allow all users. Add groups to restrict access.",
     )
 
-    # Shared venv — created once, reused across executions
     shared_venv_path = models.CharField(max_length=1000, blank=True)
     deps_installed_at = models.DateTimeField(null=True, blank=True)
 
@@ -54,7 +46,7 @@ class ETL(models.Model):
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
-        related_name='created_etls'
+        related_name='created_etls',
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

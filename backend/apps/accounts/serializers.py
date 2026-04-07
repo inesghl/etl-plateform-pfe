@@ -1,7 +1,6 @@
+# accounts/serializers.py
 from rest_framework import serializers
-from .models import User
-
-
+from .models import User, UserGroup
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -16,20 +15,36 @@ class UserSerializer(serializers.ModelSerializer):
         return obj.is_admin
 
 
-
-
 class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
-
 
     class Meta:
         model = User
         fields = ['username', 'email', 'password', 'role']
 
-
     def create(self, validated_data):
-        user = User.objects.create_user(**validated_data)
-        return user
+        return User.objects.create_user(**validated_data)
 
 
+class UserGroupSerializer(serializers.ModelSerializer):
+    members = UserSerializer(many=True, read_only=True)
+    member_ids = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=User.objects.all(),
+        write_only=True,
+        source='members',
+        required=False,
+    )
+    member_count = serializers.SerializerMethodField()
 
+    class Meta:
+        model = UserGroup
+        fields = [
+            'id', 'name', 'description',
+            'members', 'member_ids', 'member_count',
+            'created_by', 'created_at',
+        ]
+        read_only_fields = ['id', 'created_by', 'created_at']
+
+    def get_member_count(self, obj):
+        return obj.members.count()

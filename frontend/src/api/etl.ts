@@ -37,3 +37,21 @@ export async function activateEtl(id: string) {
 export async function deleteEtl(id: string) {
   return apiFetch(`/etls/${id}/`, { method: "DELETE" });
 }
+export async function editEtl(id: string, data: any) {
+  return apiFetch(`/etls/${id}/edit/`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
+export async function assignEtlGroups(id: string, groupIds: string[]) {
+  return apiFetch(`/etls/${id}/assign_groups/`, {
+    method: "POST",
+    body: JSON.stringify({ group_ids: groupIds }),
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
+}
