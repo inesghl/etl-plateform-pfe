@@ -1047,7 +1047,7 @@ function ExecutionProgress({ execution }: { execution: Execution }) {
       {isSuccess && (
         <div style={{ marginTop: 12, padding: 14, borderRadius: T.r, textAlign: "center", background: T.successBg, border: `1px solid ${T.successBorder}` }}>
           <div style={{ fontSize: 14, color: T.success, fontWeight: 700 }}>
-            ETL completed — closing in a moment…
+            ETL completed
           </div>
         </div>
       )}

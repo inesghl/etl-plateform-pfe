@@ -40,28 +40,3 @@ export async function removeGroupMembers(id: string, user_ids: number[]): Promis
   });
 }
 
-// api/etl.ts additions — add these to your existing etl.ts
-export async function assignEtlGroups(etlId: string, group_ids: string[]) {
-  return apiFetch(`/etls/${etlId}/assign_groups/`, {
-    method: "POST",
-    body: JSON.stringify({ group_ids }),
-  });
-}
-
-export async function editEtl(
-  etlId: string,
-  payload: {
-    name?: string;
-    description?: string;
-    version?: string;
-    entry_point_path?: string;
-    config_file_path?: string;
-    requirements_path?: string;
-    python_version?: string;
-  },
-) {
-  return apiFetch(`/etls/${etlId}/edit/`, {
-    method: "PATCH",
-    body: JSON.stringify(payload),
-  });
-}

@@ -30,13 +30,7 @@ class UserViewSet(viewsets.ModelViewSet):
 class UserGroupViewSet(viewsets.ModelViewSet):
     """
     Admin-only CRUD for user groups.
-    GET    /groups/           — list all groups
-    POST   /groups/           — create group  { name, description, member_ids }
-    GET    /groups/<id>/      — retrieve
-    PATCH  /groups/<id>/      — update name/description/members
-    DELETE /groups/<id>/      — delete
-    POST   /groups/<id>/add_members/     { user_ids: [...] }
-    POST   /groups/<id>/remove_members/  { user_ids: [...] }
+  
     """
     queryset = UserGroup.objects.prefetch_related('members').all()
     serializer_class = UserGroupSerializer

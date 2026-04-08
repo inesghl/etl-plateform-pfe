@@ -1,0 +1,17 @@
+{
+  "execution_id": "6f7f5040-4cd9-4ad2-96cc-0b6c38ae046f",
+  "etl_id": "85757240-c64f-4247-91f0-a0a3a0a63dda",
+  "work_directory": "C:\\etl\\platform\\backend\\storage\\executions\\6f7f5040-4cd9-4ad2-96cc-0b6c38ae046f",
+  "outputs": {
+    "directory": "C:\\etl\\platform\\backend\\storage\\executions\\6f7f5040-4cd9-4ad2-96cc-0b6c38ae046f\\outputs",
+    "deleted": "C:\\etl\\platform\\backend\\storage\\executions\\6f7f5040-4cd9-4ad2-96cc-0b6c38ae046f\\deleted",
+    "archive": "C:\\etl\\platform\\backend\\storage\\executions\\6f7f5040-4cd9-4ad2-96cc-0b6c38ae046f\\archive"
+  },
+  "config": {
+    "logs_dir": "logs",
+    "input_excel": "data/input.xlsx",
+    "deleted_rows": "deleted/deleted_rows.xlsx",
+    "output_excel": "outputs/final_outputs.xlsx"
+  },
+  "config_overrides": {}
+}
