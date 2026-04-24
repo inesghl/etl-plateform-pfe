@@ -1,0 +1,12 @@
+{
+  "execution_id": "0a02bcc1-7a6e-45b5-a133-1fac82d81a2e",
+  "etl_id": "8ce641fb-7b4d-4f85-81c8-c38f0d4b37f8",
+  "work_directory": "C:\\etl\\platform\\backend\\storage\\executions\\0a02bcc1-7a6e-45b5-a133-1fac82d81a2e",
+  "config": {
+    "logs_dir": "logs",
+    "input_excel": "data/input.xlsx",
+    "deleted_rows": "deleted/deleted_rows.xlsx",
+    "output_excel": "outputs/final_outputs.xlsx"
+  },
+  "config_overrides": {}
+}

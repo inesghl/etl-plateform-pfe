@@ -1,0 +1,6 @@
+{
+  "logs_dir": "logs",
+  "input_excel": "C:\\etl\\platform\\backend\\storage\\executions\\cee7f869-4479-4635-a9f1-38b6faea659d\\data\\input 11(1).xlsx",
+  "deleted_rows": "C:\\Users\\ines.ghali_amaris\\Downloads\\input 11(1).xlsx",
+  "output_excel": "outputs/final_outputs.xlsx"
+}

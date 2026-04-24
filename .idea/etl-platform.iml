@@ -6,6 +6,7 @@
       <sourceFolder url="file://$MODULE_DIR$/backend/apps" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/backend/storage/etl_venvs/c3cfd32e-05e9-40e8-bef3-d0c0bcc8a79d/Lib/site-packages" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/backend/storage/etl_venvs/c3cfd32e-05e9-40e8-bef3-d0c0bcc8a79d/Lib/site-packages/pip/_vendor" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/backend/storage/executions/cc543e85-68eb-495a-bc56-89b2ca21b6c9/etl_code/etl_facture" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/backend/.venv" />
       <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/03311292-89e6-44b6-9d24-c239af6a0183/.venv" />
       <excludeFolder url="file://$MODULE_DIR$/backend/storage/executions/05dab941-c7c3-4aa6-9069-dd2ef50bfdbc/.venv" />

@@ -35,7 +35,7 @@ urlpatterns = [
 
     path("api/", include("apps.etl.urls")),
     path("api/", include("apps.execution.urls")),
-    path("api/", include("apps.input_file.urls")),
+   
     path("api/", include("apps.output_file.urls")),
     path("api/", include("apps.notification.urls")),
 ]

@@ -1,0 +1,19 @@
+{
+  "execution_id": "b5e64c59-67d7-4d9b-b351-51f5d58f69d8",
+  "etl_id": "9d42fb41-53bb-4b12-886a-a2548b268bd3",
+  "work_directory": "C:\\etl\\platform\\backend\\storage\\executions\\b5e64c59-67d7-4d9b-b351-51f5d58f69d8",
+  "outputs": {
+    "directory": "C:\\etl\\platform\\backend\\storage\\executions\\b5e64c59-67d7-4d9b-b351-51f5d58f69d8\\outputs",
+    "deleted": "C:\\etl\\platform\\backend\\storage\\executions\\b5e64c59-67d7-4d9b-b351-51f5d58f69d8\\deleted",
+    "archive": "C:\\etl\\platform\\backend\\storage\\executions\\b5e64c59-67d7-4d9b-b351-51f5d58f69d8\\archive"
+  },
+  "config": {
+    "logs_dir": "logs",
+    "input_excel": "C:\\etl\\platform\\backend\\storage\\executions\\b5e64c59-67d7-4d9b-b351-51f5d58f69d8\\data\\Changelog_HOWRES.xlsx",
+    "deleted_rows": "deleted/deleted_rows.xlsx",
+    "output_excel": "outputs/final_outputs.xlsx"
+  },
+  "config_overrides": {
+    "input_excel": "C:\\Users\\ines.ghali_amaris\\Downloads\\Changelog_HOWRES.xlsx"
+  }
+}

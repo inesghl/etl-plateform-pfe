@@ -74,7 +74,7 @@ def _build_text(execution, etl, is_success, output_files, duration, friendly_err
         lines += ["", f"Output files ({len(output_files)}):"]
         for f in output_files:
             lines.append(f"  - {f.filename}  ({f.file_size_mb} MB)")
-        app_url = getattr(settings, "FRONTEND_URL", "http://localhost:5173")
+        app_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
         lines += ["", f"Download: {app_url}"]
 
     if friendly_error:
@@ -93,7 +93,7 @@ def _build_html(execution, etl, is_success, output_files, duration, friendly_err
     status_bg = "#f0fdf4" if is_success else "#fef2f2"
     status_border = "#86efac" if is_success else "#fca5a5"
     icon = "✓" if is_success else "✗"
-    app_url = getattr(settings, "FRONTEND_URL", "http://localhost:5173")
+    app_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
 
     launched_by = execution.launched_by.username if execution.launched_by else "—"
     started = execution.started_at.strftime("%d %b %Y %H:%M UTC") if execution.started_at else "—"

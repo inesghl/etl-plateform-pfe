@@ -1,0 +1,19 @@
+{
+  "execution_id": "b75538c1-1b7b-44aa-9517-d56866759596",
+  "etl_id": "4b942935-6752-4004-9b67-efa13cc9cda6",
+  "work_directory": "C:\\etl\\platform\\backend\\storage\\executions\\b75538c1-1b7b-44aa-9517-d56866759596",
+  "outputs": {
+    "directory": "C:\\etl\\platform\\backend\\storage\\executions\\b75538c1-1b7b-44aa-9517-d56866759596\\outputs",
+    "deleted": "C:\\etl\\platform\\backend\\storage\\executions\\b75538c1-1b7b-44aa-9517-d56866759596\\deleted",
+    "archive": "C:\\etl\\platform\\backend\\storage\\executions\\b75538c1-1b7b-44aa-9517-d56866759596\\archive"
+  },
+  "config": {
+    "logs_dir": "logs",
+    "input_excel": "C:\\Users\\ines.ghali_amaris\\Downloads\\input_111_1.xlsx",
+    "deleted_rows": "deleted/deleted_rows.xlsx",
+    "output_excel": "outputs/final_outputs.xlsx"
+  },
+  "config_overrides": {
+    "input_excel": "C:\\Users\\ines.ghali_amaris\\Downloads\\input_111_1.xlsx"
+  }
+}

@@ -68,7 +68,7 @@ def _parse_config(path: Path) -> tuple[dict, str | None]:
 
 
 def _notify_group_members(etl: ETL, groups: list) -> None:
-    """Send in-app notifications to all members of the assigned groups."""
+    """Send in-app notifications to all members of newly assigned groups."""
     try:
         from ..notification.models import Notification
         notified_user_ids = set()
@@ -102,28 +102,11 @@ class ETLViewSet(viewsets.ModelViewSet):
         return ctx
 
     def get_queryset(self):
-        user = self.request.user
-        if hasattr(user, "is_admin") and user.is_admin:
-            return ETL.objects.all().order_by("-created_at")
-
-        # Non-admin: only active+validated ETLs they have access to
-        base_qs = ETL.objects.filter(is_active=True, is_validated=True)
-
-        # ETLs with no group restriction OR ETLs where user is in an allowed group
-        user_group_ids = user.user_groups.values_list('id', flat=True)
-        return base_qs.filter(
-            # No groups assigned (open to all)
-            models__isnull=True  # placeholder — see below
-        ) | base_qs.filter(
-            allowed_groups__id__in=user_group_ids
-        )
-
-    def get_queryset(self):
         """
-        Admins see everything.
-        Users see active+validated ETLs that are either:
-          - unrestricted (no allowed_groups set), or
-          - restricted to a group they belong to.
+        Admins see all ETLs.
+        Regular users see only active + validated ETLs that are either:
+          - unrestricted (no allowed_groups assigned), or
+          - restricted to a group the user belongs to.
         """
         from django.db.models import Q
         user = self.request.user
@@ -173,6 +156,7 @@ class ETLViewSet(viewsets.ModelViewSet):
             raise serializers.ValidationError({"zip_file": [f"Extraction failed: {str(e)}"]})
 
         warnings = []
+
         ep = _find_file(extracted_root, etl.entry_point_path)
         if ep:
             etl.resolved_entry_point = str(ep)
@@ -205,8 +189,10 @@ class ETLViewSet(viewsets.ModelViewSet):
         ])
 
     def _safe_extract_zip(self, zip_path, extract_to):
-        SKIP_PATTERNS = ['.venv', 'venv', '__pycache__', '.git', '.idea', '.vscode',
-                         'node_modules', '.DS_Store', 'Thumbs.db']
+        SKIP_PATTERNS = [
+            '.venv', 'venv', '__pycache__', '.git', '.idea', '.vscode',
+            'node_modules', '.DS_Store', 'Thumbs.db',
+        ]
         with zipfile.ZipFile(zip_path, 'r') as zf:
             for member in zf.namelist():
                 if member.startswith('/') or '..' in member:
@@ -247,21 +233,19 @@ class ETLViewSet(viewsets.ModelViewSet):
     def assign_groups(self, request, pk=None):
         """
         Set which groups can access this ETL.
-        Body: { group_ids: ["uuid1", "uuid2", ...] }
+        Body: { "group_ids": ["uuid1", "uuid2", ...] }
         Pass an empty list to make it accessible to everyone.
-        Sends in-app notifications to newly added group members.
+        Sends in-app notifications to members of newly added groups.
         """
         etl: ETL = self.get_object()
         group_ids = request.data.get("group_ids", [])
         new_groups = list(UserGroup.objects.filter(id__in=group_ids))
 
-        # Detect which groups are newly added (not previously assigned)
         existing_ids = set(etl.allowed_groups.values_list('id', flat=True))
         newly_added = [g for g in new_groups if g.id not in existing_ids]
 
         etl.allowed_groups.set(new_groups)
 
-        # Notify members of newly assigned groups
         if newly_added:
             _notify_group_members(etl, newly_added)
 
@@ -273,10 +257,16 @@ class ETLViewSet(viewsets.ModelViewSet):
     def read_config(self, request, pk=None):
         etl: ETL = self.get_object()
         if not etl.resolved_config_file:
-            return Response({"detail": "No config file resolved."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "No config file resolved."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         cf = Path(etl.resolved_config_file)
         if not cf.exists():
-            return Response({"detail": "Config file not found on disk."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"detail": "Config file not found on disk."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         try:
             raw = cf.read_text(encoding="utf-8")
         except Exception as e:
@@ -297,8 +287,10 @@ class ETLViewSet(viewsets.ModelViewSet):
         etl: ETL = self.get_object()
         incoming = request.data.get("config")
         if not isinstance(incoming, dict) or not incoming:
-            return Response({"detail": "Body must contain a non-empty 'config' object."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Body must contain a non-empty 'config' object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         updated_config = {**etl.config, **incoming}
         etl.config = updated_config
         etl.save(update_fields=["config"])
@@ -316,13 +308,17 @@ class ETLViewSet(viewsets.ModelViewSet):
         etl: ETL = self.get_object()
         classifications = request.data.get("classifications", {})
         if not isinstance(classifications, dict):
-            return Response({"detail": "classifications must be a JSON object."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "classifications must be a JSON object."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         valid_types = {"input", "output", "other"}
         bad = [k for k, v in classifications.items() if v not in valid_types]
         if bad:
-            return Response({"detail": f"Invalid classification type for keys: {bad}."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": f"Invalid classification type for keys: {bad}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         etl.path_classifications = classifications
         etl.save(update_fields=["path_classifications"])
         return Response({"path_classifications": etl.path_classifications, "detail": "Saved."})
@@ -335,7 +331,10 @@ class ETLViewSet(viewsets.ModelViewSet):
         errors, warnings, info = [], [], {}
 
         if not etl.extracted_path or not Path(etl.extracted_path).exists():
-            return Response({"detail": "ETL not extracted yet."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "ETL not extracted yet."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         extracted = Path(etl.extracted_path)
 
@@ -388,20 +387,30 @@ class ETLViewSet(viewsets.ModelViewSet):
         if errors:
             etl.is_validated = False
             etl.validation_errors = errors
-            etl.save(update_fields=["is_validated", "validation_errors",
-                                    "resolved_entry_point", "resolved_config_file",
-                                    "resolved_requirements", "config"])
-            return Response({"detail": "Validation failed", "errors": errors,
-                             "warnings": warnings, "info": info},
-                            status=status.HTTP_400_BAD_REQUEST)
+            etl.save(update_fields=[
+                "is_validated", "validation_errors",
+                "resolved_entry_point", "resolved_config_file",
+                "resolved_requirements", "config",
+            ])
+            return Response(
+                {"detail": "Validation failed", "errors": errors,
+                 "warnings": warnings, "info": info},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         etl.is_validated = True
         etl.validation_errors = []
-        etl.save(update_fields=["is_validated", "validation_errors",
-                                 "resolved_entry_point", "resolved_config_file",
-                                 "resolved_requirements", "config"])
+        etl.save(update_fields=[
+            "is_validated", "validation_errors",
+            "resolved_entry_point", "resolved_config_file",
+            "resolved_requirements", "config",
+        ])
         data = ETLSerializer(etl, context={'request': request}).data
-        data["validation_info"] = {"warnings": warnings, "info": info, "message": "ETL validated successfully"}
+        data["validation_info"] = {
+            "warnings": warnings,
+            "info": info,
+            "message": "ETL validated successfully",
+        }
         return Response(data)
 
     # ── rebuild_venv ──────────────────────────────────────────────
@@ -424,8 +433,10 @@ class ETLViewSet(viewsets.ModelViewSet):
     def activate(self, request, pk=None):
         etl: ETL = self.get_object()
         if not etl.is_validated:
-            return Response({"detail": "ETL must be validated before activation."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "ETL must be validated before activation."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         etl.is_active = True
         etl.save(update_fields=["is_active"])
         return Response(ETLSerializer(etl, context={'request': request}).data)
@@ -436,8 +447,10 @@ class ETLViewSet(viewsets.ModelViewSet):
     def delete(self, request, pk=None):
         etl: ETL = self.get_object()
         if etl.executions.exists():
-            return Response({"detail": "Cannot delete ETL with existing executions."},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "Cannot delete ETL with existing executions."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         for path_attr in ["shared_venv_path", "extracted_path"]:
             p_str = getattr(etl, path_attr)
             if p_str:
@@ -451,6 +464,7 @@ class ETLViewSet(viewsets.ModelViewSet):
 # ── Disk write-back helper ────────────────────────────────────────
 
 def _write_back_config(etl: ETL, changed_keys: dict) -> None:
+    """Write changed config keys back to the config file on disk."""
     if not etl.resolved_config_file:
         return
     cf = Path(etl.resolved_config_file)

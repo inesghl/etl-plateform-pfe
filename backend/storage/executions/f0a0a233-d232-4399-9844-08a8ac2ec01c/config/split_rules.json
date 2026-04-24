@@ -1,0 +1,10 @@
+{
+  "DF_A": {
+    "column": "category",
+    "values": ["A", "B"]
+  },
+  "DF_B": {
+    "column": "category",
+    "values": ["C"]
+  }
+}

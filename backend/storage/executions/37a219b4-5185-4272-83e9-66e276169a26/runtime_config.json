@@ -1,0 +1,21 @@
+{
+  "execution_id": "37a219b4-5185-4272-83e9-66e276169a26",
+  "etl_id": "8ce641fb-7b4d-4f85-81c8-c38f0d4b37f8",
+  "work_directory": "C:\\etl\\platform\\backend\\storage\\executions\\37a219b4-5185-4272-83e9-66e276169a26",
+  "outputs": {
+    "directory": "C:\\etl\\platform\\backend\\storage\\executions\\37a219b4-5185-4272-83e9-66e276169a26\\outputs",
+    "deleted": "C:\\etl\\platform\\backend\\storage\\executions\\37a219b4-5185-4272-83e9-66e276169a26\\deleted",
+    "archive": "C:\\etl\\platform\\backend\\storage\\executions\\37a219b4-5185-4272-83e9-66e276169a26\\archive"
+  },
+  "config": {
+    "logs_dir": "logs",
+    "input_excel": "C:\\Users\\ines.ghali_amaris\\Downloads\\Untitled spreadsheet.xlsx",
+    "deleted_rows": "C:\\Users\\ines.ghali_amaris\\Downloads\\Untitled spreadsheet.xlsx",
+    "output_excel": "C:\\Users\\ines.ghali_amaris\\Downloads\\Untitled spreadsheet.xlsx"
+  },
+  "config_overrides": {
+    "input_excel": "C:\\Users\\ines.ghali_amaris\\Downloads\\Untitled spreadsheet.xlsx",
+    "deleted_rows": "C:\\Users\\ines.ghali_amaris\\Downloads\\Untitled spreadsheet.xlsx",
+    "output_excel": "C:\\Users\\ines.ghali_amaris\\Downloads\\Untitled spreadsheet.xlsx"
+  }
+}

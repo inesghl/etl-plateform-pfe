@@ -1,0 +1,6 @@
+{
+  "logs_dir": "logs",
+  "input_excel": "C:\\Users\\ines.ghali_amaris\\Downloads\\input_111 (1).xlsx",
+  "deleted_rows": "deleted/deleted_rows.xlsx",
+  "output_excel": "outputs/final_outputs.xlsx"
+}

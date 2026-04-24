@@ -52,9 +52,10 @@ INSTALLED_APPS = [
    # 'apps.core',
     'apps.etl',
     'apps.execution',
-    'apps.input_file',
+
     'apps.output_file',
     'apps.notification',
+    'apps.scheduling',
 
 ]
 
@@ -175,8 +176,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
+
 ]
 
 # JWT settings
@@ -187,10 +187,12 @@ SIMPLE_JWT = {
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
 }
 
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
-EMAIL_HOST     = "smtp.your-provider.com"
+EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_HOST     = "smtp.gmail.com"
 EMAIL_PORT     = 587
 EMAIL_USE_TLS  = True
-EMAIL_HOST_USER     = ""
-EMAIL_HOST_PASSWORD = ""
+EMAIL_HOST_USER     = os.getenv('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')
 DEFAULT_FROM_EMAIL  = "noreply@etl-platform.local"
+
+print(os.getenv("EMAIL_HOST_PASSWORD"))
