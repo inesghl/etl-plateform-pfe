@@ -11,9 +11,9 @@ logger = logging.getLogger("scheduling")
 
 
 class SchedulingConfig(AppConfig):
-    name         = "scheduling"   # adjust to your project path e.g. "backend.scheduling"
+    name         = "apps.scheduling"
     default_auto_field = "django.db.models.BigAutoField"
-
+    label = 'scheduling'
     def ready(self):
         # Django calls ready() twice in dev (autoreloader forks).
         # The RUN_MAIN env var is only set in the child (real) process.

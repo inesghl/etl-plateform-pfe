@@ -38,6 +38,7 @@ urlpatterns = [
    
     path("api/", include("apps.output_file.urls")),
     path("api/", include("apps.notification.urls")),
+    path("api/", include("apps.scheduling.urls")),
 ]
 
 if settings.DEBUG:

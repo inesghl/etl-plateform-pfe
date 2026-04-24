@@ -6,15 +6,23 @@ import { Button } from "../common/Button";
 import { STATUS_COLORS } from "../../utils/constants";
 import { apiFetch } from "../../api/api";
 import { sendExecutionReport } from "../../api/execution";
+import { ScheduledExecutionBanner } from "../scheduling/scheduleExecutionBanner";
 
 type Props = {
   execution: Execution;
   onViewLogs?: (exec: Execution) => void;
   onViewOutputs?: (exec: Execution) => void;
   onViewInputs?: (exec: Execution) => void;
+  onReviewScheduled?: (exec: Execution) => void;   // ← added
 };
 
-export function ExecutionCard({ execution: initialExecution, onViewLogs, onViewOutputs, onViewInputs }: Props) {
+export function ExecutionCard({
+  execution: initialExecution,
+  onViewLogs,
+  onViewOutputs,
+  onViewInputs,
+  onReviewScheduled,
+}: Props) {
   const [execution, setExecution] = useState(initialExecution);
   const [showOverrides, setShowOverrides] = useState(false);
   const [sendingReport, setSendingReport] = useState(false);
@@ -196,6 +204,12 @@ export function ExecutionCard({ execution: initialExecution, onViewLogs, onViewO
           {reportMsg}
         </div>
       )}
+
+      {/* Scheduled execution banner */}
+      <ScheduledExecutionBanner
+        execution={execution}
+        onLaunch={(exec) => onReviewScheduled?.(exec)}
+      />
     </Card>
   );
 }

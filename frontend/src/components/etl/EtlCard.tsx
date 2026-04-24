@@ -2,10 +2,12 @@
 import React, { useState } from "react";
 import { Etl } from "../../types/etl";
 import { UserGroup } from "../../types/group";
+import { User } from "../../types/user";
 import { Badge } from "../common/Badge";
 import { Button } from "../common/Button";
 import { Card } from "../common/Card";
 import { deleteEtl, editEtl, assignEtlGroups } from "../../api/etl";
+import { ScheduleEditor } from "../scheduling/scheduleEditor";
 
 const T = {
   border: "#e2e8f0", surface: "#f8fafc", text: "#0f172a",
@@ -26,6 +28,7 @@ const inputStyle: React.CSSProperties = {
 type Props = {
   etl: Etl;
   isAdmin: boolean;
+  currentUser?: User;
   availableGroups?: UserGroup[];
   onValidate?: (id: string) => Promise<void>;
   onActivate?: (id: string) => Promise<void>;
@@ -34,7 +37,7 @@ type Props = {
 };
 
 export function EtlCard({
-  etl, isAdmin, availableGroups = [],
+  etl, isAdmin, currentUser, availableGroups = [],
   onValidate, onActivate, onLaunch, onRefresh,
 }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
@@ -63,7 +66,6 @@ export function EtlCard({
           <div style={{ flex: 1 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <div style={{ fontSize: 15, fontWeight: 600 }}>{etl.name}</div>
-              {/* Access badge */}
               {isAdmin && (
                 <span style={{
                   fontSize: 10, padding: "1px 7px", borderRadius: 99,
@@ -91,7 +93,6 @@ export function EtlCard({
               <div style={{ fontSize: 13, color: T.textMid, marginTop: 4 }}>{etl.description}</div>
             )}
 
-            {/* Assigned groups (admin view) */}
             {isAdmin && etl.is_restricted && (
               <div style={{ marginTop: 6, display: "flex", gap: 4, flexWrap: "wrap" }}>
                 {etl.allowed_groups.map(g => (
@@ -148,6 +149,19 @@ export function EtlCard({
                 {etl.validation_errors.join(" · ")}
               </div>
             )}
+
+            {/*
+              Schedule editor — visible to BOTH admins and regular users.
+              Admins get the extra "Notify" target selector (group / specific email).
+              The isAdmin prop was previously missing here, causing ScheduleEditor
+              to always render without admin-only controls.
+            */}
+            <ScheduleEditor
+              etlId={etl.id}
+              etlName={etl.name}
+              userEmail={currentUser?.email ?? ""}
+              isAdmin={isAdmin}
+            />
           </div>
 
           {/* Actions */}
@@ -156,29 +170,21 @@ export function EtlCard({
             <Badge label={etl.is_active ? "active" : "inactive"} color={etl.is_active ? T.accent : T.textMuted} />
 
             {isAdmin && (
-              <Button small variant="ghost" onClick={() => setShowEdit(true)}>
-                ✏ Edit
-              </Button>
+              <Button small variant="ghost" onClick={() => setShowEdit(true)}>✏ Edit</Button>
             )}
-
             {isAdmin && (
-              <Button small variant="ghost" onClick={() => setShowAssign(true)}>
-                👥 Groups
-              </Button>
+              <Button small variant="ghost" onClick={() => setShowAssign(true)}>👥 Groups</Button>
             )}
-
             {isAdmin && !etl.is_validated && (
               <Button small variant="secondary" disabled={!!busy} onClick={() => handle("validate")}>
                 {busy === "validate" ? "…" : "✓ Validate"}
               </Button>
             )}
-
             {isAdmin && etl.is_validated && !etl.is_active && (
               <Button small variant="success" disabled={!!busy} onClick={() => handle("activate")}>
                 {busy === "activate" ? "…" : "▶ Activate"}
               </Button>
             )}
-
             {isAdmin && (
               <Button small variant="danger" onClick={async () => {
                 if (confirm(`Delete ${etl.name}? This cannot be undone.`)) {
@@ -191,7 +197,6 @@ export function EtlCard({
                 Delete
               </Button>
             )}
-
             {!isAdmin && etl.is_active && etl.is_validated && (
               <Button onClick={() => onLaunch?.(etl)}>▶ Launch</Button>
             )}
@@ -201,7 +206,6 @@ export function EtlCard({
         {err && <div style={{ marginTop: 8, fontSize: 12, color: T.danger }}>{err}</div>}
       </Card>
 
-      {/* Edit modal */}
       {showEdit && (
         <EditEtlModal
           etl={etl}
@@ -209,8 +213,6 @@ export function EtlCard({
           onSaved={() => { setShowEdit(false); onRefresh?.(); }}
         />
       )}
-
-      {/* Assign groups modal */}
       {showAssign && (
         <AssignGroupsModal
           etl={etl}
@@ -284,16 +286,12 @@ function EditEtlModal({ etl, onClose, onSaved }: {
           <input value={requirementsPath} onChange={e => setRequirementsPath(e.target.value)}
             style={inputStyle} placeholder="e.g. requirements.txt" />
         </Field>
-
         {err && <div style={{ fontSize: 12, color: T.danger }}>{err}</div>}
-
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
           <button onClick={onClose} style={{
             padding: "7px 14px", borderRadius: T.r, fontSize: 13,
             border: `1px solid ${T.border}`, background: "transparent", color: T.textMid, cursor: "pointer",
-          }}>
-            Cancel
-          </button>
+          }}>Cancel</button>
           <button onClick={handleSave} disabled={busy || !name.trim()} style={{
             padding: "7px 16px", borderRadius: T.r, fontSize: 13,
             border: "none", background: T.accent, color: "#fff",
@@ -320,8 +318,7 @@ function AssignGroupsModal({ etl, availableGroups, onClose, onSaved }: {
 
   function toggle(id: string) {
     const next = new Set(selected);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
+    if (next.has(id)) next.delete(id); else next.add(id);
     setSelected(next);
   }
 
@@ -332,7 +329,7 @@ function AssignGroupsModal({ etl, availableGroups, onClose, onSaved }: {
       onSaved();
     } catch (e: any) { setErr(e.message); }
     finally { setBusy(false); }
-  }   
+  }
 
   return (
     <Overlay onClose={onClose} title="Assign groups" subtitle={etl.name}>
@@ -343,7 +340,6 @@ function AssignGroupsModal({ etl, availableGroups, onClose, onSaved }: {
       }}>
         Select which groups can access this ETL. Leave all unchecked to make it available to everyone.
       </div>
-
       {availableGroups.length === 0 ? (
         <div style={{ fontSize: 13, color: T.textMuted, padding: "12px 0" }}>
           No groups exist yet. Create groups in the Groups tab first.
@@ -370,7 +366,6 @@ function AssignGroupsModal({ etl, availableGroups, onClose, onSaved }: {
           ))}
         </div>
       )}
-
       {selected.size === 0 && availableGroups.length > 0 && (
         <div style={{
           padding: "8px 12px", borderRadius: T.r, marginBottom: 12,
@@ -380,16 +375,12 @@ function AssignGroupsModal({ etl, availableGroups, onClose, onSaved }: {
           ⚠ No groups selected — this ETL will be visible to all users.
         </div>
       )}
-
       {err && <div style={{ fontSize: 12, color: T.danger, marginBottom: 10 }}>{err}</div>}
-
       <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
         <button onClick={onClose} style={{
           padding: "7px 14px", borderRadius: T.r, fontSize: 13,
           border: `1px solid ${T.border}`, background: "transparent", color: T.textMid, cursor: "pointer",
-        }}>
-          Cancel
-        </button>
+        }}>Cancel</button>
         <button onClick={handleSave} disabled={busy} style={{
           padding: "7px 16px", borderRadius: T.r, fontSize: 13,
           border: "none", background: T.accent, color: "#fff",
@@ -449,7 +440,3 @@ function Field({ label, children, style }: {
     </div>
   );
 }
-
-// Keep T.warn/warnBg/warnBorder available
-const warnStyle = { warn: "#b45309", warnBg: "#fffbeb", warnBorder: "#fde68a" };
-Object.assign(T, warnStyle);

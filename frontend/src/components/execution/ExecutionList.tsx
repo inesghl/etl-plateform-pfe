@@ -1,3 +1,4 @@
+// components/execution/ExecutionList.tsx
 import React from "react";
 import { Execution } from "../../types/execution";
 import { ExecutionCard } from "./ExecutionCard";
@@ -7,33 +8,33 @@ type Props = {
   executions: Execution[];
   onViewLogs?: (exec: Execution) => void;
   onViewOutputs?: (exec: Execution) => void;
-  onViewInputs?: (exec: Execution) => void;  // ✅ ADD THIS
+  onViewInputs?: (exec: Execution) => void;
+  onReviewScheduled?: (exec: Execution) => void;  // ← added
 };
 
-export function ExecutionList({ executions, onViewLogs, onViewOutputs, onViewInputs }: Props) {
+export function ExecutionList({
+  executions,
+  onViewLogs,
+  onViewOutputs,
+  onViewInputs,
+  onReviewScheduled,
+}: Props) {
   if (executions.length === 0) {
-    return <Empty icon="🚀" text="No executions yet." />;
+    return <Empty icon="▶" text="No executions yet." />;
   }
-
-  const sorted = [...executions].sort(
-    (a, b) => new Date(b.launched_at).getTime() - new Date(a.launched_at).getTime()
-  );
 
   return (
     <div>
-
-      {sorted.map((exec) => (
+      {executions.map(exec => (
         <ExecutionCard
           key={exec.id}
           execution={exec}
           onViewLogs={onViewLogs}
           onViewOutputs={onViewOutputs}
-          onViewInputs={onViewInputs}  // ✅ ADD THIS
+          onViewInputs={onViewInputs}
+          onReviewScheduled={onReviewScheduled}
         />
-
       ))}
     </div>
-
-
   );
 }

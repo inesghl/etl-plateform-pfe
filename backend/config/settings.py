@@ -52,10 +52,10 @@ INSTALLED_APPS = [
    # 'apps.core',
     'apps.etl',
     'apps.execution',
-
+    'apps.scheduling',
     'apps.output_file',
     'apps.notification',
-    'apps.scheduling',
+
 
 ]
 

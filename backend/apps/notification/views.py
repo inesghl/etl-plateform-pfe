@@ -5,6 +5,7 @@ from rest_framework import serializers, viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.db.models import Q
 
 from .models import Notification
 
@@ -29,9 +30,13 @@ class NotificationViewSet(viewsets.ModelViewSet):
     http_method_names  = ["get", "patch", "delete", "head", "options"]
 
     def get_queryset(self):
-        # Each user sees their own + any broadcast (user=None) notifications
         user = self.request.user
-        from django.db.models import Q
+
+        # Admins see everything (their own + all user-specific + broadcasts)
+        if getattr(user, "is_admin", False):
+            return Notification.objects.all().order_by("-created_at")
+
+        # Regular users: their own + broadcasts (user=None)
         return Notification.objects.filter(
             Q(user=user) | Q(user__isnull=True)
         ).order_by("-created_at")

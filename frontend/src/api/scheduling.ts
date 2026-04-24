@@ -1,7 +1,8 @@
 // api/scheduling.ts
 import { apiFetch } from "./api";
 
-export type Frequency = "daily" | "weekly" | "monthly";
+export type Frequency     = "daily" | "weekly" | "monthly";
+export type NotifyTarget  = "creator" | "group" | "specific";
 
 export interface ETLSchedule {
   id: string;
@@ -9,11 +10,16 @@ export interface ETLSchedule {
   etl_name: string;
   is_active: boolean;
   frequency: Frequency;
-  time_of_day: string;         // "HH:MM:SS"
-  day_of_week: number | null;  // 0=Mon…6=Sun
-  day_of_month: number | null; // 1-28
-  notify_email: string;
+  time_of_day: string;              // "HH:MM:SS"
+  day_of_week: number | null;       // 0=Mon … 6=Sun
+  day_of_month: number | null;      // 1-28
+  // notification
+  notify_target: NotifyTarget;
+  notify_specific_email: string;
+  backup_email: string;
   effective_email: string;
+  all_notify_emails: string[];
+  // timestamps
   last_triggered_at: string | null;
   created_at: string;
   updated_at: string;
@@ -22,10 +28,13 @@ export interface ETLSchedule {
 export interface SchedulePayload {
   etl: string;
   frequency: Frequency;
-  time_of_day: string;         // "HH:MM"
+  time_of_day: string;              // "HH:MM"
   day_of_week?: number | null;
   day_of_month?: number | null;
-  notify_email?: string;
+  // notification
+  notify_target?: NotifyTarget;
+  notify_specific_email?: string;
+  backup_email?: string;
   is_active?: boolean;
 }
 
@@ -49,7 +58,10 @@ export async function createSchedule(payload: SchedulePayload): Promise<ETLSched
   });
 }
 
-export async function updateSchedule(id: string, payload: Partial<SchedulePayload>): Promise<ETLSchedule> {
+export async function updateSchedule(
+  id: string,
+  payload: Partial<SchedulePayload>,
+): Promise<ETLSchedule> {
   return apiFetch(`/schedules/${id}/`, {
     method: "PATCH",
     body: JSON.stringify(payload),
@@ -63,4 +75,11 @@ export async function deleteSchedule(id: string): Promise<void> {
 
 export async function toggleSchedule(id: string): Promise<ETLSchedule> {
   return apiFetch(`/schedules/${id}/toggle/`, { method: "POST" });
+}
+
+/** Admin-only: immediately create a PENDING execution for this schedule */
+export async function fireScheduleNow(
+  id: string,
+): Promise<{ detail: string; execution_id: string }> {
+  return apiFetch(`/schedules/${id}/fire_now/`, { method: "POST" });
 }

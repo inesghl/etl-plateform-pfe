@@ -75,6 +75,14 @@ function Dashboard({ currentUser, onLogout }: Props) {
     }
   }
 
+  // Called from the ⏰ banner inside ExecutionCard:
+  // find the matching ETL and open LaunchModal, then switch to executions tab.
+  function handleReviewScheduled(exec: Execution) {
+    const etl = etls.find(e => e.id === exec.etl);
+    if (etl) setLaunchEtl(etl);
+    setTab("executions");
+  }
+
   return (
     <div className={styles.page}>
       <Header currentUser={currentUser} onLogout={onLogout} />
@@ -93,6 +101,7 @@ function Dashboard({ currentUser, onLogout }: Props) {
             <EtlList
               etls={displayEtls}
               isAdmin={isAdmin}
+              currentUser={currentUser}
               availableGroups={groups}
               onValidate={validate}
               onActivate={activate}
@@ -135,6 +144,7 @@ function Dashboard({ currentUser, onLogout }: Props) {
               onViewLogs={setLogExec}
               onViewOutputs={setOutputExec}
               onViewInputs={setInputExec}
+              onReviewScheduled={handleReviewScheduled}
             />
           </>
         )}
@@ -159,7 +169,11 @@ function Dashboard({ currentUser, onLogout }: Props) {
                 <Button small variant="ghost" onClick={markAllRead}>Mark all read</Button>
               )}
             </div>
-            <NotificationList notifications={notifications} onMarkRead={markRead} onDeleted={remove} />
+            <NotificationList
+              notifications={notifications}
+              onMarkRead={markRead}
+              onDeleted={remove}
+            />
           </>
         )}
       </PageLayout>
