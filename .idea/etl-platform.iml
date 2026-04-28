@@ -75,8 +75,9 @@
       <excludeFolder url="file://$MODULE_DIR$/backend/storage/extracted/9aa376f5-d26e-4182-b2f1-3c01e12798c4/etl_facture/.venv" />
       <excludeFolder url="file://$MODULE_DIR$/backend/storage/extracted/d6db82ae-5640-4209-99bc-aed2bf03ca51/etl_facture/.venv" />
       <excludeFolder url="file://$MODULE_DIR$/backend/storage/extracted/e7951a19-ae18-4aac-aa33-28104f79ef75/etl_facture/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/.venv" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.12" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="uv (etl-plateform-pfe)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PyDocumentationSettings">

@@ -15,7 +15,7 @@ class SchedulingConfig(AppConfig):
     default_auto_field = "django.db.models.BigAutoField"
     label = 'scheduling'
     def ready(self):
-        # Django calls ready() twice in dev (autoreloader forks).
+        # Django calls ready() twice in dev
         # The RUN_MAIN env var is only set in the child (real) process.
         if os.environ.get("RUN_MAIN") != "true":
             # We're in the autoreloader parent — skip.
