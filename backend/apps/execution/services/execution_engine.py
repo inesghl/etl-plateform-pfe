@@ -1,26 +1,9 @@
 """
 execution/services/execution_engine.py
 ───────────────────────────────────────
-Fixes applied vs previous version:
 
-  BUG A  _sync_input_files() now patches effective_config[key] after copying
-         an absolute input to work_dir/data/ so the script reads the local copy.
 
-  BUG B  _prepare_output_dirs() heuristic simplified — always creates the
-         parent directory; also creates the path itself when it has no suffix
-         (i.e. looks like a directory).
-
-  BUG C  _collect_outputs() resolves classified output paths against work_dir,
-         not etl.extracted_path.
-
-  BUG D  _determine_status() checks execution.output_files.exists() (the DB
-         records populated by _collect_outputs) before falling back to scanning
-         the standard dirs. This is the fix for "always SUCCESS" — status is
-         now determined from what was actually found on disk, not a stale path
-         resolution.
-
-  EXTRA  _find_requirements_file() gracefully handles missing requirements.txt
-         without raising — the engine simply skips pip install and continues.
+  .
 """
 
 import json

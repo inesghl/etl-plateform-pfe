@@ -26,25 +26,28 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   });
 
   if (!res.ok) {
+    // Read body ONCE as text, then parse if possible
+    const raw = await res.text();
     let errorMessage = `HTTP ${res.status}`;
     try {
-      const errorData = await res.json();
+      const errorData = JSON.parse(raw);
       if (errorData.detail) {
         errorMessage = errorData.detail;
+      } else if (errorData.error) {
+        errorMessage = errorData.error;
       } else if (errorData.errors) {
         errorMessage = Array.isArray(errorData.errors)
           ? errorData.errors.join(", ")
           : JSON.stringify(errorData.errors);
-      } else if (errorData.zip_file) {
-        errorMessage = Array.isArray(errorData.zip_file)
-          ? errorData.zip_file.join(", ")
-          : errorData.zip_file;
+      } else {
+        // Flatten all field errors: { field: ["msg"] } → "msg"
+        const messages = Object.values(errorData).flat();
+        if (messages.length > 0) {
+          errorMessage = messages.join(" ");
+        }
       }
     } catch {
-      const text = await res.text();
-      if (text && text.length < 200) {
-        errorMessage = text;
-      }
+      if (raw && raw.length < 300) errorMessage = raw;
     }
     throw new Error(errorMessage);
   }

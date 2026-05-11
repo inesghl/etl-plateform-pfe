@@ -4,7 +4,7 @@ import { LoginPage } from "./pages/LoginPage";
 import Dashboard from "./pages/Dashboard";
 
 function App() {
-  const { isAuthenticated, currentUser, loading, error, login, logout } = useAuth();
+  const { isAuthenticated, currentUser, loading, error, login, logout, setCurrentUser } = useAuth();
 
   if (loading) {
     return (
@@ -18,7 +18,13 @@ function App() {
     return <LoginPage onLogin={login} error={error} />;
   }
 
-  return <Dashboard currentUser={currentUser} onLogout={logout} />;
+  return (
+    <Dashboard
+      currentUser={currentUser}
+      onLogout={logout}
+      onUserUpdated={setCurrentUser}
+    />
+  );
 }
 
 export default App;

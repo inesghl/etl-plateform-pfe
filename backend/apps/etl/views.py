@@ -211,9 +211,9 @@ class ETLViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["patch"], permission_classes=[IsAuthenticated, IsAdmin])
     def edit(self, request, pk=None):
         """
-        Update editable ETL metadata: name, description, version,
-        entry_point_path, config_file_path, requirements_path, python_version.
-        Does NOT re-upload the ZIP.
+        Update editable ETL metadata. Optionally re-upload a new ZIP file.
+        If a new zip_file is provided, the old extraction is replaced and
+        paths are re-resolved (entry point, config, requirements).
         """
         etl: ETL = self.get_object()
         allowed_fields = {
@@ -225,6 +225,86 @@ class ETLViewSet(viewsets.ModelViewSet):
         serializer = ETLSerializer(etl, data=data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
+
+        zip_file = request.FILES.get("zip_file")
+        if zip_file:
+            _, ext = os.path.splitext(zip_file.name)
+            if ext.lower() != ".zip":
+                return Response(
+                    {"detail": "Only .zip files are allowed."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            max_size = int(os.getenv("MAX_UPLOAD_SIZE", settings.FILE_UPLOAD_MAX_MEMORY_SIZE))
+            if zip_file.size > max_size:
+                return Response(
+                    {"detail": f"File too large (>{max_size} bytes). Current: {zip_file.size} bytes."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Remove old extracted directory
+            if etl.extracted_path:
+                old_extracted = Path(etl.extracted_path)
+                if old_extracted.exists():
+                    shutil.rmtree(old_extracted, ignore_errors=True)
+
+            # Replace the zip_file field on the model
+            etl.zip_file = zip_file
+            etl.save(update_fields=["zip_file"])
+
+            # Re-extract
+            extracted_root = Path(settings.MEDIA_ROOT) / "extracted" / str(etl.id)
+            extracted_root.mkdir(parents=True, exist_ok=True)
+            try:
+                self._safe_extract_zip(etl.zip_file.path, extracted_root)
+            except Exception as e:
+                return Response(
+                    {"detail": f"Extraction failed: {str(e)}"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            etl.extracted_path = str(extracted_root)
+
+            # Reset resolved paths and validation state
+            etl.is_validated = False
+            etl.resolved_entry_point = ""
+            etl.resolved_config_file = ""
+            etl.resolved_requirements = ""
+            etl.config = {}
+            warnings = []
+
+            ep = _find_file(extracted_root, etl.entry_point_path)
+            if ep:
+                etl.resolved_entry_point = str(ep)
+            else:
+                warnings.append(f"Entry point '{etl.entry_point_path}' not found in ZIP.")
+
+            if etl.config_file_path:
+                cf = _find_file(extracted_root, etl.config_file_path)
+                if cf:
+                    etl.resolved_config_file = str(cf)
+                    parsed, err = _parse_config(cf)
+                    if err:
+                        warnings.append(f"Config found but could not be parsed: {err}")
+                    else:
+                        etl.config = parsed
+                else:
+                    warnings.append(f"Config file '{etl.config_file_path}' not found in ZIP.")
+
+            if etl.requirements_path:
+                rp = _find_file(extracted_root, etl.requirements_path)
+                if rp:
+                    etl.resolved_requirements = str(rp)
+                else:
+                    warnings.append(f"Requirements '{etl.requirements_path}' not found in ZIP.")
+
+            etl.validation_errors = warnings
+            etl.save(update_fields=[
+                "extracted_path", "is_validated", "validation_errors",
+                "resolved_entry_point", "resolved_config_file",
+                "resolved_requirements", "config",
+            ])
+
         return Response(ETLSerializer(etl, context={'request': request}).data)
 
     # ── assign_groups (admin) ─────────────────────────────────────

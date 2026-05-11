@@ -1,14 +1,14 @@
-// hooks/useNotifications.ts
 import { useState, useCallback, useEffect } from "react";
 import { Notification } from "../types/notification";
 import {
   fetchNotifications,
   markNotificationRead,
+  markNotificationUnread,
   markAllNotificationsRead,
   deleteNotification,
 } from "../api/notification";
 
-const POLL_INTERVAL_MS = 15_000; // refresh every 15 s to catch new notifications
+const POLL_INTERVAL_MS = 15_000;
 
 export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -26,7 +26,6 @@ export function useNotifications() {
     }
   }, []);
 
-  // Auto-poll so in-app notifications appear without a manual refresh
   useEffect(() => {
     loadNotifications();
     const id = setInterval(loadNotifications, POLL_INTERVAL_MS);
@@ -36,12 +35,22 @@ export function useNotifications() {
   async function markRead(id: string) {
     try {
       await markNotificationRead(id);
-      // Optimistic update — no need to refetch
       setNotifications(prev =>
         prev.map(n => n.id === id ? { ...n, is_read: true } : n)
       );
     } catch (e: any) {
       console.error("markRead failed:", e);
+    }
+  }
+
+  async function markUnread(id: string) {
+    try {
+      await markNotificationUnread(id);
+      setNotifications(prev =>
+        prev.map(n => n.id === id ? { ...n, is_read: false } : n)
+      );
+    } catch (e: any) {
+      console.error("markUnread failed:", e);
     }
   }
 
@@ -67,6 +76,6 @@ export function useNotifications() {
 
   return {
     notifications, loading, error, unreadCount,
-    loadNotifications, markRead, markAllRead, remove,
+    loadNotifications, markRead, markUnread, markAllRead, remove,
   };
 }

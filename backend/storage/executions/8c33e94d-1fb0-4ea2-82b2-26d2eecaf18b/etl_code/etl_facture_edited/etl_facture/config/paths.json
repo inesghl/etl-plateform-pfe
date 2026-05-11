@@ -1,0 +1,14 @@
+{
+  "input2": {
+    "path": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Documents\\data",
+    "file1": "test_drive.xlsx",
+    "file2": "parc*S*.xlsx",
+    "file3": "*test.txt",
+    "file4": "-",
+    "files number": 45
+  },
+  "logs_dir": "logs",
+  "input_excel": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\8c33e94d-1fb0-4ea2-82b2-26d2eecaf18b\\data\\input.xlsx",
+  "deleted_rows": "deleted/deleted_rows.xlsx",
+  "output_excel": "outputs/final_outputs.xlsx"
+}

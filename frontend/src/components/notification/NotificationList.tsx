@@ -1,4 +1,3 @@
-// components/notification/NotificationList.tsx
 import React from "react";
 import { Notification } from "../../types/notification";
 import { NotificationCard } from "./NotificationCard";
@@ -6,11 +5,11 @@ import { Empty } from "../common/Empty";
 
 type Props = {
   notifications: Notification[];
-  onMarkRead?: (id: string) => Promise<void>;
+  onMarkUnread?: (id: string) => Promise<void>;
   onDeleted?: (id: string) => void;
 };
 
-export function NotificationList({ notifications, onMarkRead, onDeleted }: Props) {
+export function NotificationList({ notifications, onMarkUnread, onDeleted }: Props) {
   if (notifications.length === 0) {
     return <Empty icon="🔔" text="No notifications yet." />;
   }
@@ -25,7 +24,7 @@ export function NotificationList({ notifications, onMarkRead, onDeleted }: Props
         <NotificationCard
           key={n.id}
           notification={n}
-          onMarkRead={onMarkRead}
+          onMarkUnread={onMarkUnread}
           onDeleted={onDeleted}
         />
       ))}

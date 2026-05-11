@@ -27,7 +27,7 @@ class NotificationSerializer(serializers.ModelSerializer):
 class NotificationViewSet(viewsets.ModelViewSet):
     serializer_class   = NotificationSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names  = ["get", "patch", "delete", "head", "options"]
+    http_method_names  = ["get", "patch", "delete", "head", "options", "post"]
 
     def get_queryset(self):
         user = self.request.user
@@ -41,7 +41,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
             Q(user=user) | Q(user__isnull=True)
         ).order_by("-created_at")
 
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["post"], url_path="mark_all_read")
     def mark_all_read(self, request):
         updated = self.get_queryset().filter(is_read=False).update(is_read=True)
         return Response({"marked_read": updated})
@@ -50,5 +50,12 @@ class NotificationViewSet(viewsets.ModelViewSet):
     def mark_read(self, request, pk=None):
         notif = self.get_object()
         notif.is_read = True
+        notif.save(update_fields=["is_read"])
+        return Response(NotificationSerializer(notif).data)
+
+    @action(detail=True, methods=["patch"])
+    def mark_unread(self, request, pk=None):
+        notif = self.get_object()
+        notif.is_read = False
         notif.save(update_fields=["is_read"])
         return Response(NotificationSerializer(notif).data)

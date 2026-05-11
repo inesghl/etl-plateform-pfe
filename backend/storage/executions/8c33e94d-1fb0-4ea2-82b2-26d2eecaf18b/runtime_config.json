@@ -1,0 +1,35 @@
+{
+  "execution_id": "8c33e94d-1fb0-4ea2-82b2-26d2eecaf18b",
+  "etl_id": "0fb8fce8-51ee-433d-b191-e207a979a80a",
+  "work_directory": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\8c33e94d-1fb0-4ea2-82b2-26d2eecaf18b",
+  "outputs": {
+    "directory": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\8c33e94d-1fb0-4ea2-82b2-26d2eecaf18b\\outputs",
+    "deleted": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\8c33e94d-1fb0-4ea2-82b2-26d2eecaf18b\\deleted",
+    "archive": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\8c33e94d-1fb0-4ea2-82b2-26d2eecaf18b\\archive"
+  },
+  "config": {
+    "input2": {
+      "path": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Documents\\data",
+      "file1": "test_drive.xlsx",
+      "file2": "parc*S*.xlsx",
+      "file3": "*test.txt",
+      "file4": "-",
+      "files number": 45
+    },
+    "logs_dir": "logs",
+    "input_excel": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\8c33e94d-1fb0-4ea2-82b2-26d2eecaf18b\\data\\input.xlsx",
+    "deleted_rows": "deleted/deleted_rows.xlsx",
+    "output_excel": "outputs/final_outputs.xlsx"
+  },
+  "config_overrides": {
+    "input2": {
+      "path": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Documents\\data",
+      "file1": "test_drive.xlsx",
+      "file2": "parc*S*.xlsx",
+      "file3": "*test.txt",
+      "file4": "-",
+      "files number": 45
+    },
+    "input_excel": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Documents\\data\\input.xlsx"
+  }
+}

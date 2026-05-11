@@ -1,22 +1,21 @@
-// components/notification/NotificationCard.tsx
 import React from "react";
 import { Notification, NotificationType } from "../../types/notification";
 import { deleteNotification } from "../../api/notification";
 
 type Props = {
   notification: Notification;
-  onMarkRead?: (id: string) => Promise<void>;
+  onMarkUnread?: (id: string) => Promise<void>;
   onDeleted?: (id: string) => void;
 };
 
-const TYPE_STYLES: Record<NotificationType, { border: string; bg: string; dot: string; label: string }> = {
-  success: { border: "#86efac", bg: "#f0fdf4", dot: "#16a34a", label: "✓" },
-  error:   { border: "#fca5a5", bg: "#fef2f2", dot: "#dc2626", label: "✗" },
-  warning: { border: "#fde68a", bg: "#fffbeb", dot: "#d97706", label: "⚠" },
-  info:    { border: "#93c5fd", bg: "#eff6ff", dot: "#2563eb", label: "ℹ" },
+const TYPE_STYLES: Record<NotificationType, { border: string; bg: string; dot: string }> = {
+  success: { border: "#86efac", bg: "#f0fdf4", dot: "#16a34a" },
+  error:   { border: "#fca5a5", bg: "#fef2f2", dot: "#dc2626" },
+  warning: { border: "#fde68a", bg: "#fffbeb", dot: "#d97706" },
+  info:    { border: "#93c5fd", bg: "#eff6ff", dot: "#2563eb" },
 };
 
-export function NotificationCard({ notification, onMarkRead, onDeleted }: Props) {
+export function NotificationCard({ notification, onMarkUnread, onDeleted }: Props) {
   const [deleting, setDeleting] = React.useState(false);
   const s = TYPE_STYLES[notification.notification_type] ?? TYPE_STYLES.info;
 
@@ -39,11 +38,12 @@ export function NotificationCard({ notification, onMarkRead, onDeleted }: Props)
       display: "flex", gap: 12, alignItems: "flex-start",
       opacity: deleting ? 0.5 : 1, transition: "opacity .2s",
     }}>
-      {/* Colour dot */}
+      {/* Unread dot */}
       <div style={{
         width: 8, height: 8, borderRadius: "50%", flexShrink: 0,
-        background: notification.is_read ? "#cbd5e1" : s.dot,
-        marginTop: 4,
+        background: notification.is_read ? "transparent" : s.dot,
+        border: notification.is_read ? "1.5px solid #cbd5e1" : "none",
+        marginTop: 5,
       }} />
 
       <div style={{ flex: 1, minWidth: 0 }}>
@@ -64,26 +64,28 @@ export function NotificationCard({ notification, onMarkRead, onDeleted }: Props)
       </div>
 
       {/* Actions */}
-      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-        {!notification.is_read && onMarkRead && (
+      <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
+        {/* Only show "Mark unread" on already-read notifications */}
+        {notification.is_read && onMarkUnread && (
           <button
-            onClick={() => onMarkRead(notification.id)}
+            onClick={() => onMarkUnread(notification.id)}
+            title="Mark as unread"
             style={{
               fontSize: 11, padding: "3px 8px", borderRadius: 6,
               border: "1px solid #e2e8f0", background: "#fff",
-              color: "#64748b", cursor: "pointer",
+              color: "#64748b", cursor: "pointer", whiteSpace: "nowrap",
             }}
           >
-            Mark read
+            Mark unread
           </button>
         )}
         <button
           onClick={handleDelete}
           disabled={deleting}
           style={{
-            fontSize: 11, padding: "3px 8px", borderRadius: 6,
+            fontSize: 13, padding: "2px 7px", borderRadius: 6,
             border: "1px solid #fca5a5", background: "#fff",
-            color: "#dc2626", cursor: "pointer",
+            color: "#dc2626", cursor: "pointer", lineHeight: 1,
           }}
         >
           ×

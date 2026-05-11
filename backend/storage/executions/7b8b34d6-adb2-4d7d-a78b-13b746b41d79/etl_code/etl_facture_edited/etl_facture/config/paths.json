@@ -1,0 +1,11 @@
+{
+  "input2": {
+    "path": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Documents\\data",
+    "file1": "input.xlsx",
+    "files number": 1
+  },
+  "logs_dir": "logs",
+  "input_excel": "data/input.xlsx",
+  "deleted_rows": "deleted/deleted_rows.xlsx",
+  "output_excel": "outputs/final_outputs.xlsx"
+}

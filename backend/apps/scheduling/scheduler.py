@@ -1,3 +1,4 @@
+# scheduling/scheduler.py
 import logging
 from datetime import datetime
 
@@ -5,6 +6,11 @@ from django.conf import settings
 from django.utils import timezone
 
 logger = logging.getLogger("scheduling")
+
+
+def _is_admin(user) -> bool:
+    """Check admin status using the 'role' field your User model actually has."""
+    return getattr(user, "role", None) == "admin"
 
 
 def check_and_fire_schedules() -> None:
@@ -21,11 +27,9 @@ def _do_check() -> None:
     now = timezone.localtime()
     logger.debug("[SCHEDULER] Tick at %s", now.strftime("%H:%M"))
 
-    # NOTE: "etl__group" does NOT exist — ETL uses allowed_groups (ManyToMany).
-    # Use prefetch_related for the M2M; select_related only for FK fields.
     due = [
         s for s in ETLSchedule.objects.select_related(
-            "etl", "etl__created_by"
+            "etl", "etl__created_by", "launched_for"
         ).prefetch_related(
             "etl__allowed_groups", "etl__allowed_groups__members"
         ).filter(is_active=True)
@@ -51,39 +55,32 @@ def _do_check() -> None:
         etl = schedule.etl
         logger.info("[SCHEDULER] Firing '%s' (%s)", etl.name, schedule.frequency)
 
-        # 1. Create PENDING execution
+        launch_owner = schedule.launched_for or etl.created_by
+
         execution = Execution.objects.create(
             etl=etl,
-            launched_by=etl.created_by,
+            launched_by=launch_owner,
             status="PENDING",
             execution_config=dict(etl.config),
             execution_label=f"{etl.name} — scheduled {now.strftime('%Y-%m-%d')}",
         )
 
-        # 2. Send emails + in-app notifications
         _send_schedule_notifications(schedule, execution, now)
 
-        # 3. Stamp
         schedule.last_triggered_at = now
         schedule.save(update_fields=["last_triggered_at"])
 
         logger.info(
-            "[SCHEDULER] ✓ Execution %s created for '%s'",
+            "[SCHEDULER] ✓ Execution %s created for '%s' (owner: %s)",
             execution.id,
             etl.name,
+            launch_owner.username,
         )
 
 
 def _send_schedule_notifications(schedule, execution, now: datetime) -> None:
-    """
-    Send launch-reminder emails + in-app notifications to:
-      - The designated recipients (creator / group / specific email)
-      - Any backup email
-      - Every admin (always, for audit purposes)
-    """
     etl = schedule.etl
 
-    # ── 1. Email notifications ────────────────────────────────────────────────
     for addr in schedule.all_notify_emails:
         try:
             _send_schedule_email(schedule, execution, addr, now)
@@ -93,11 +90,8 @@ def _send_schedule_notifications(schedule, execution, now: datetime) -> None:
             )
 
     if not schedule.all_notify_emails:
-        logger.warning(
-            "[SCHEDULER] No notify emails for schedule %s", schedule.id
-        )
+        logger.warning("[SCHEDULER] No notify emails for schedule %s", schedule.id)
 
-    # ── 2. In-app notifications ───────────────────────────────────────────────
     _create_inapp_notifications(schedule, execution)
 
 
@@ -106,52 +100,78 @@ def _create_inapp_notifications(schedule, execution) -> None:
         from django.contrib.auth import get_user_model
         from ..notification.models import Notification
 
-        etl = schedule.etl
+        etl     = schedule.etl
+        User    = get_user_model()
         creator = etl.created_by
 
-        msg = (
-            f"A scheduled {schedule.frequency} run for \"{etl.name}\" is due. "
+        launch_msg = (
+            f"A scheduled {schedule.frequency} run for \"{etl.name}\" is ready. "
             "Please review the configuration and launch it from the Executions tab."
         )
-
-        # Always notify the ETL creator
-        Notification.objects.create(
-            user=creator,
-            title=f"⏰ Scheduled run ready: {etl.name}",
-            message=msg,
-            notification_type="info",
-            execution=execution,
+        audit_msg = (
+            f"Scheduler auto-created a PENDING execution for \"{etl.name}\" "
+            f"(owned by {creator.username}). "
+            f"Schedule: {schedule.frequency} at "
+            f"{schedule.time_of_day.strftime('%H:%M')}."
         )
 
-        # If group-notify: notify every active group member individually.
-        # ETL uses allowed_groups (ManyToMany), so iterate over all of them.
-        if schedule.notify_target == "group":
-            for group in etl.allowed_groups.all():
-                members = group.members.filter(is_active=True).exclude(id=creator.id)
-                for member in members:
-                    Notification.objects.create(
-                        user=member,
-                        title=f"⏰ Scheduled run ready: {etl.name}",
-                        message=msg,
-                        notification_type="info",
-                        execution=execution,
-                    )
+        launch_user_ids: set = set()
 
-        # Always notify all admins (audit trail)
-        User = get_user_model()
-        admins = User.objects.filter(
-            is_admin=True, is_active=True
-        ).exclude(id=creator.id)
-        for admin in admins:
+        if not _is_admin(creator):
+            # User-created schedule: only the creator launches
+            launch_user_ids.add(creator.id)
+        else:
+            # Admin-created schedule
+            if schedule.notify_target == "group":
+                for group in etl.allowed_groups.all():
+                    for member in group.members.filter(is_active=True):
+                        launch_user_ids.add(member.id)
+            elif schedule.notify_target == "specific":
+                if schedule.launched_for_id:
+                    launch_user_ids.add(schedule.launched_for_id)
+                else:
+                    launch_user_ids.add(creator.id)
+            else:
+                launch_user_ids.add(creator.id)
+
+        # All admin IDs — use role field
+        admin_ids = set(
+            User.objects.filter(role="admin", is_active=True)
+            .values_list("id", flat=True)
+        )
+
+        # Launch notifications (non-admins only)
+        for uid in launch_user_ids:
+            if uid in admin_ids:
+                continue
+            try:
+                user = User.objects.get(pk=uid)
+                Notification.objects.create(
+                    user=user,
+                    title=f"⏰ Scheduled run ready: {etl.name}",
+                    message=launch_msg,
+                    notification_type="info",
+                    execution=execution,
+                )
+            except User.DoesNotExist:
+                pass
+
+        # Notify creator if not already notified and not an admin
+        if creator.id not in launch_user_ids and creator.id not in admin_ids:
+            Notification.objects.create(
+                user=creator,
+                title=f"⏰ Scheduled run ready: {etl.name}",
+                message=launch_msg,
+                notification_type="info",
+                execution=execution,
+            )
+
+        # Audit notification for every admin
+        for admin in User.objects.filter(role="admin", is_active=True):
             Notification.objects.create(
                 user=admin,
                 title=f"📅 Scheduled run triggered: {etl.name}",
-                message=(
-                    f"Scheduler auto-created a PENDING execution for \"{etl.name}\" "
-                    f"(owned by {creator.username}). "
-                    f"Schedule: {schedule.frequency} at "
-                    f"{schedule.time_of_day.strftime('%H:%M')}."
-                ),
+                message=audit_msg,
                 notification_type="info",
                 execution=execution,
             )
@@ -160,63 +180,54 @@ def _create_inapp_notifications(schedule, execution) -> None:
         logger.warning("[SCHEDULER] In-app notification error: %s", e)
 
 
-def _send_schedule_email(
-    schedule, execution, recipient: str, now: datetime
-) -> None:
+def _send_schedule_email(schedule, execution, recipient: str, now: datetime) -> None:
     from django.core.mail import EmailMultiAlternatives
 
-    etl = schedule.etl
+    etl          = schedule.etl
     frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:5173")
-    deep_link = f"{frontend_url}?tab=executions&exec={execution.id}"
+    deep_link    = f"{frontend_url}?tab=executions&exec={execution.id}"
+    freq_label   = _freq_label(schedule)
 
-    freq_label = {
-        "daily": "daily",
-        "weekly": (
-            f"weekly (every "
-            f"{['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][schedule.day_of_week or 0]})"
-        ),
-        "monthly": f"monthly (day {schedule.day_of_month})",
-    }.get(schedule.frequency, schedule.frequency)
-
-    subject = f"⏰ Scheduled ETL ready to launch: {etl.name}"
-
-    text_body = f"""Hi,
-
-Your {freq_label} schedule for "{etl.name}" (v{etl.version}) is due today \
-({now.strftime('%Y-%m-%d %H:%M')}).
-
-Steps:
-  1. Open the platform → Executions tab
-  2. Find the pending run: "{execution.execution_label}"
-  3. Review & update the config (input file paths may have changed)
-  4. Click Launch
-
-Quick link: {deep_link}
-
-ETL: {etl.name} v{etl.version}
-Schedule: {freq_label} at {schedule.time_of_day.strftime('%H:%M')}
-
-──
-ETL Platform""".strip()
-
-    html_body = _build_schedule_html(
-        etl, execution, freq_label, deep_link, now, schedule
+    subject   = f"⏰ Scheduled ETL ready to launch: {etl.name}"
+    text_body = (
+        f"Hi,\n\n"
+        f'Your {freq_label} schedule for "{etl.name}" (v{etl.version}) is due today '
+        f"({now.strftime('%Y-%m-%d %H:%M')}).\n\n"
+        f"Steps:\n"
+        f"  1. Open the platform → Executions tab\n"
+        f'  2. Find the pending run: "{execution.execution_label}"\n'
+        f"  3. Review & update the config (input file paths may have changed)\n"
+        f"  4. Click Launch\n\n"
+        f"Quick link: {deep_link}\n\n"
+        f"ETL: {etl.name} v{etl.version}\n"
+        f"Schedule: {freq_label} at {schedule.time_of_day.strftime('%H:%M')}\n\n"
+        f"──\nETL Platform"
     )
+    html_body  = _build_schedule_html(etl, execution, freq_label, deep_link, now, schedule)
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@etl-platform.local")
 
-    from_email = getattr(
-        settings, "DEFAULT_FROM_EMAIL", "noreply@etl-platform.local"
-    )
     msg = EmailMultiAlternatives(subject, text_body, from_email, [recipient])
     msg.attach_alternative(html_body, "text/html")
     msg.send()
-    logger.info(
-        "[SCHEDULER] Email sent to %s for '%s'", recipient, etl.name
-    )
+    logger.info("[SCHEDULER] Email sent to %s for '%s'", recipient, etl.name)
 
 
-def _build_schedule_html(
-    etl, execution, freq_label, deep_link, now, schedule
-) -> str:
+def _freq_label(schedule) -> str:
+    DAYS   = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+    if schedule.frequency == "weekly":
+        return f"weekly (every {DAYS[schedule.day_of_week or 0]})"
+    if schedule.frequency == "monthly":
+        return f"monthly (day {schedule.day_of_month})"
+    if schedule.frequency == "yearly":
+        mon = MONTHS[(schedule.month_of_year or 1) - 1]
+        return f"yearly ({mon} {schedule.day_of_year})"
+    return "daily"
+
+
+def _build_schedule_html(etl, execution, freq_label, deep_link, now, schedule) -> str:
     steps = [
         "Open the <strong>Executions</strong> tab in the platform",
         f"Find the pending run: <strong>{execution.execution_label}</strong>",
@@ -231,13 +242,9 @@ def _build_schedule_html(
         f'<span style="font-size:13px;color:#475569;line-height:1.5;">{s}</span></div>'
         for i, s in enumerate(steps)
     )
-
     return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1.0">
-</head>
+<html lang="en"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
              background:#f8fafc;margin:0;padding:20px;color:#1e293b;">
   <div style="max-width:540px;margin:0 auto;background:#fff;border-radius:12px;
@@ -246,25 +253,21 @@ def _build_schedule_html(
       <span style="display:inline-block;padding:4px 12px;border-radius:99px;
                    font-size:12px;font-weight:600;background:#2563eb;color:#fff;
                    margin-bottom:10px;">⏰ Scheduled Run Due</span>
-      <p style="font-size:20px;font-weight:700;margin:0 0 4px;color:#0f172a;">
-        {etl.name}
-      </p>
+      <p style="font-size:20px;font-weight:700;margin:0 0 4px;color:#0f172a;">{etl.name}</p>
       <p style="font-size:13px;color:#64748b;margin:0;">
         {freq_label} · {now.strftime('%A, %d %B %Y at %H:%M')}
       </p>
     </div>
     <div style="padding:24px;">
       <p style="font-size:14px;color:#334155;margin:0 0 20px;line-height:1.6;">
-        Your scheduled run for <strong>{etl.name}</strong> is due. Before launching,
-        please <strong>review the configuration</strong> — input file paths may have
-        changed.
+        Your scheduled run for <strong>{etl.name}</strong> is due.
+        Before launching, please <strong>review the configuration</strong> —
+        input file paths may have changed.
       </p>
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;
                   padding:16px;margin-bottom:20px;">
         <p style="font-size:11px;font-weight:700;text-transform:uppercase;
-                  letter-spacing:.06em;color:#94a3b8;margin:0 0 12px;">
-          What to do
-        </p>
+                  letter-spacing:.06em;color:#94a3b8;margin:0 0 12px;">What to do</p>
         {steps_html}
       </div>
       <a href="{deep_link}"
@@ -282,5 +285,4 @@ def _build_schedule_html(
       ETL Platform · {freq_label} at {schedule.time_of_day.strftime('%H:%M')}
     </div>
   </div>
-</body>
-</html>"""
+</body></html>"""

@@ -37,13 +37,12 @@ export async function activateEtl(id: string) {
 export async function deleteEtl(id: string) {
   return apiFetch(`/etls/${id}/`, { method: "DELETE" });
 }
-export async function editEtl(id: string, data: any) {
+export async function editEtl(id: string, payload: FormData | Record<string, string>) {
+  const isFormData = payload instanceof FormData;
   return apiFetch(`/etls/${id}/edit/`, {
     method: "PATCH",
-    body: JSON.stringify(data),
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: isFormData ? undefined : { "Content-Type": "application/json" },
+    body: isFormData ? payload : JSON.stringify(payload),
   });
 }
 export async function assignEtlGroups(id: string, groupIds: string[]) {

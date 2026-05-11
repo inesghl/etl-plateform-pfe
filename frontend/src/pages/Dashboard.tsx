@@ -17,6 +17,8 @@ import { OutputsPanel } from "../components/outputFile/OutputsPanel";
 import { NotificationList } from "../components/notification/NotificationList";
 import { Card } from "../components/common/Card";
 import { GroupManager } from "../components/groups/GroupManager";
+import { ProfilePage } from "../components/users/ProfilePage";
+import { UsersPage } from "../components/users/UserPage";
 import { useEtls } from "../hooks/useEtls";
 import { useExecutions } from "../hooks/useExecutions";
 import { useNotifications } from "../hooks/useNotifications";
@@ -27,12 +29,13 @@ import styles from "../styles/Dashboard.module.css";
 type Props = {
   currentUser: User;
   onLogout: () => void;
+  onUserUpdated: (user: User) => void; // lift updated user up to App
 };
 
-function Dashboard({ currentUser, onLogout }: Props) {
+function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
   const { etls, loading: etlLoading, error: etlError, loadEtls, upload, validate, activate, getConfig } = useEtls();
   const { executions, loadExecutions, create: createExecution, launch: launchExecution } = useExecutions();
-  const { notifications, unreadCount, loadNotifications, markRead, markAllRead, remove } = useNotifications();
+  const { notifications, unreadCount, loadNotifications, markUnread, markAllRead, remove } = useNotifications();
 
   const [tab, setTab] = useState("etls");
   const [launchEtl, setLaunchEtl] = useState<Etl | null>(null);
@@ -58,9 +61,18 @@ function Dashboard({ currentUser, onLogout }: Props) {
     { id: "etls", label: isAdmin ? "Manage ETLs" : "Available ETLs" },
     ...(isAdmin ? [{ id: "upload", label: "Upload ETL" }] : []),
     ...(isAdmin ? [{ id: "groups", label: "Groups" }] : []),
+    ...(isAdmin ? [{ id: "users", label: "Users" }] : []),
     { id: "executions", label: "Executions" },
     { id: "notifications", label: "Notifications", badge: unreadCount },
+    { id: "profile", label: "My Profile" },
   ];
+
+  function handleTabChange(next: string) {
+    setTab(next);
+    if (next === "notifications" && unreadCount > 0) {
+      markAllRead();
+    }
+  }
 
   function handleLaunchDone() {
     loadExecutions();
@@ -75,8 +87,6 @@ function Dashboard({ currentUser, onLogout }: Props) {
     }
   }
 
-  // Called from the ⏰ banner inside ExecutionCard:
-  // find the matching ETL and open LaunchModal, then switch to executions tab.
   function handleReviewScheduled(exec: Execution) {
     const etl = etls.find(e => e.id === exec.etl);
     if (etl) setLaunchEtl(etl);
@@ -90,7 +100,7 @@ function Dashboard({ currentUser, onLogout }: Props) {
       <PageLayout>
         {etlError && <div className={styles.errorBanner}>{etlError}</div>}
 
-        <Tabs tabs={tabs} active={tab} onChange={setTab} />
+        <Tabs tabs={tabs} active={tab} onChange={handleTabChange} />
 
         {/* ETLs Tab */}
         {tab === "etls" && (
@@ -132,6 +142,11 @@ function Dashboard({ currentUser, onLogout }: Props) {
           </>
         )}
 
+        {/* Users Tab (Admin only) */}
+        {tab === "users" && isAdmin && (
+          <UsersPage currentUser={currentUser} />
+        )}
+
         {/* Executions Tab */}
         {tab === "executions" && (
           <>
@@ -155,26 +170,22 @@ function Dashboard({ currentUser, onLogout }: Props) {
             <div className={styles.sectionHeader}>
               <h2 className={styles.sectionTitle}>
                 Notifications ({notifications.length})
-                {unreadCount > 0 && (
-                  <span style={{
-                    marginLeft: 8, fontSize: 12, fontWeight: 600,
-                    background: "#dc2626", color: "#fff",
-                    padding: "1px 7px", borderRadius: 99,
-                  }}>
-                    {unreadCount} unread
-                  </span>
-                )}
               </h2>
-              {unreadCount > 0 && (
-                <Button small variant="ghost" onClick={markAllRead}>Mark all read</Button>
-              )}
             </div>
             <NotificationList
               notifications={notifications}
-              onMarkRead={markRead}
+              onMarkUnread={markUnread}
               onDeleted={remove}
             />
           </>
+        )}
+
+        {/* Profile Tab */}
+        {tab === "profile" && (
+          <ProfilePage
+            currentUser={currentUser}
+            onProfileUpdated={onUserUpdated}
+          />
         )}
       </PageLayout>
 

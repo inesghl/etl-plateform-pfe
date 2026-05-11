@@ -237,19 +237,26 @@ function EditEtlModal({ etl, onClose, onSaved }: {
   const [configFilePath, setConfigFilePath] = useState(etl.config_file_path);
   const [requirementsPath, setRequirementsPath] = useState(etl.requirements_path);
   const [pythonVersion, setPythonVersion] = useState(etl.python_version);
+  const [zipFile, setZipFile] = useState<File | null>(null);   // ← new
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   async function handleSave() {
     try {
       setBusy(true); setErr(null);
-      await editEtl(etl.id, {
-        name: name.trim(), description: description.trim(),
-        version: version.trim(), entry_point_path: entryPointPath.trim(),
-        config_file_path: configFilePath.trim(),
-        requirements_path: requirementsPath.trim(),
-        python_version: pythonVersion.trim(),
-      });
+
+      // Always use FormData so we can optionally attach a binary file
+      const fd = new FormData();
+      fd.append("name", name.trim());
+      fd.append("description", description.trim());
+      fd.append("version", version.trim());
+      fd.append("entry_point_path", entryPointPath.trim());
+      fd.append("config_file_path", configFilePath.trim());
+      fd.append("requirements_path", requirementsPath.trim());
+      fd.append("python_version", pythonVersion.trim());
+      if (zipFile) fd.append("zip_file", zipFile);
+
+      await editEtl(etl.id, fd);   // pass FormData instead of plain object
       onSaved();
     } catch (e: any) { setErr(e.message); }
     finally { setBusy(false); }
@@ -286,6 +293,41 @@ function EditEtlModal({ etl, onClose, onSaved }: {
           <input value={requirementsPath} onChange={e => setRequirementsPath(e.target.value)}
             style={inputStyle} placeholder="e.g. requirements.txt" />
         </Field>
+
+        {/* ── ZIP replacement ── */}
+        <Field label="Replace ZIP (optional)">
+          <div style={{
+            border: `1px dashed ${zipFile ? T.accentBorder : T.border}`,
+            borderRadius: T.r, padding: "10px 12px",
+            background: zipFile ? T.accentBg : T.surface,
+            transition: "all .15s",
+          }}>
+            <input
+              type="file"
+              accept=".zip"
+              style={{ fontSize: 12, color: T.textMid, width: "100%" }}
+              onChange={e => setZipFile(e.target.files?.[0] ?? null)}
+            />
+            {zipFile && (
+              <div style={{ marginTop: 6, fontSize: 11, color: T.accent }}>
+                📦 {zipFile.name} ({(zipFile.size / 1024).toFixed(1)} KB)
+                {" "}
+                <button
+                  onClick={() => setZipFile(null)}
+                  style={{ background: "none", border: "none", color: T.danger, cursor: "pointer", fontSize: 11 }}
+                >
+                  ✕ Remove
+                </button>
+              </div>
+            )}
+            {!zipFile && (
+              <div style={{ marginTop: 4, fontSize: 11, color: T.textMuted }}>
+                Uploading a new ZIP will re-extract and reset validation status.
+              </div>
+            )}
+          </div>
+        </Field>
+
         {err && <div style={{ fontSize: 12, color: T.danger }}>{err}</div>}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
           <button onClick={onClose} style={{

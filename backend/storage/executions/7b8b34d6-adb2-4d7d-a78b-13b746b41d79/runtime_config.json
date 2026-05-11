@@ -1,0 +1,28 @@
+{
+  "execution_id": "7b8b34d6-adb2-4d7d-a78b-13b746b41d79",
+  "etl_id": "0fb8fce8-51ee-433d-b191-e207a979a80a",
+  "work_directory": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\7b8b34d6-adb2-4d7d-a78b-13b746b41d79",
+  "outputs": {
+    "directory": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\7b8b34d6-adb2-4d7d-a78b-13b746b41d79\\outputs",
+    "deleted": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\7b8b34d6-adb2-4d7d-a78b-13b746b41d79\\deleted",
+    "archive": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\7b8b34d6-adb2-4d7d-a78b-13b746b41d79\\archive"
+  },
+  "config": {
+    "input2": {
+      "path": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Documents\\data",
+      "file1": "input.xlsx",
+      "files number": 1
+    },
+    "logs_dir": "logs",
+    "input_excel": "data/input.xlsx",
+    "deleted_rows": "deleted/deleted_rows.xlsx",
+    "output_excel": "outputs/final_outputs.xlsx"
+  },
+  "config_overrides": {
+    "input2": {
+      "path": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Documents\\data",
+      "file1": "input.xlsx",
+      "files number": 1
+    }
+  }
+}

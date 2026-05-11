@@ -1,3 +1,4 @@
+# scheduling/views.py
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -8,14 +9,17 @@ from .models import ETLSchedule
 from .serializers import ETLScheduleSerializer
 
 
+def _is_admin(user) -> bool:
+    return getattr(user, "role", None) == "admin"
+
+
 def _notify_admins_of_action(user, action_label: str, etl_name: str, schedule_id=None):
-    """Create an in-app notification for every admin whenever a user touches a schedule."""
     try:
         from django.contrib.auth import get_user_model
         from ..notification.models import Notification
 
-        User = get_user_model()
-        admins = User.objects.filter(is_admin=True, is_active=True)
+        User   = get_user_model()
+        admins = User.objects.filter(role="admin", is_active=True)
         for admin in admins:
             Notification.objects.create(
                 user=admin,
@@ -40,12 +44,20 @@ class ETLScheduleViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if getattr(user, "is_admin", False):
-            return ETLSchedule.objects.select_related("etl", "etl__created_by").all().order_by("-created_at")
-        # Regular users: see schedules only for ETLs they own
-        return ETLSchedule.objects.select_related("etl", "etl__created_by").filter(
-            etl__created_by=user
-        ).order_by("-created_at")
+        if _is_admin(user):
+            return (
+                ETLSchedule.objects
+                .select_related("etl", "etl__created_by", "launched_for")
+                .all()
+                .order_by("-created_at")
+            )
+        from django.db.models import Q
+        return (
+            ETLSchedule.objects
+            .select_related("etl", "etl__created_by", "launched_for")
+            .filter(Q(etl__created_by=user) | Q(launched_for=user))
+            .order_by("-created_at")
+        )
 
     def get_serializer_context(self):
         ctx = super().get_serializer_context()
@@ -65,41 +77,35 @@ class ETLScheduleViewSet(viewsets.ModelViewSet):
         )
 
     def perform_destroy(self, instance):
-        etl_name = instance.etl.name
+        etl_name    = instance.etl.name
         schedule_id = instance.id
         instance.delete()
-        _notify_admins_of_action(
-            self.request.user, "Deleted", etl_name, schedule_id
-        )
+        _notify_admins_of_action(self.request.user, "Deleted", etl_name, schedule_id)
 
-    # ── Admin-only: toggle active/inactive ───────────────────────────────────
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsAdmin])
     def toggle(self, request, pk=None):
         schedule: ETLSchedule = self.get_object()
-        schedule.is_active = not schedule.is_active
+        schedule.is_active    = not schedule.is_active
         schedule.save(update_fields=["is_active"])
         state = "Activated" if schedule.is_active else "Deactivated"
         _notify_admins_of_action(request.user, state, schedule.etl.name, schedule.id)
         return Response(ETLScheduleSerializer(schedule, context={"request": request}).data)
 
-    # ── Admin-only: manually trigger a schedule immediately ──────────────────
     @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsAdmin])
     def fire_now(self, request, pk=None):
-        """
-        Admin-only shortcut: immediately create a PENDING execution for this
-        schedule, send notifications, and stamp last_triggered_at.
-        """
         schedule: ETLSchedule = self.get_object()
+
         from django.utils import timezone
         from ..execution.models import Execution
         from .scheduler import _send_schedule_notifications
 
-        now = timezone.localtime()
-        etl = schedule.etl
+        now          = timezone.localtime()
+        etl          = schedule.etl
+        launch_owner = schedule.launched_for or etl.created_by
 
         execution = Execution.objects.create(
             etl=etl,
-            launched_by=request.user,
+            launched_by=launch_owner,
             status="PENDING",
             execution_config=dict(etl.config),
             execution_label=f"{etl.name} — manual trigger {now.strftime('%Y-%m-%d %H:%M')}",

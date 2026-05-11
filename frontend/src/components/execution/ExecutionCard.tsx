@@ -207,9 +207,8 @@ export function ExecutionCard({
 
       {/* Scheduled execution banner */}
       <ScheduledExecutionBanner
-        execution={execution}
-        onLaunch={(exec) => onReviewScheduled?.(exec)}
-      />
+          execution={execution}
+          onLaunch={(exec) => onReviewScheduled?.(exec)} currentUserId={""}      />
     </Card>
   );
 }
