@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     'apps.scheduling',
     'apps.output_file',
     'apps.notification',
+'apps.stats',
 
 
 ]

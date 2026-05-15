@@ -23,8 +23,7 @@ from django.utils import timezone
 from ..models import Execution
 from ...etl.models import ETL
 from ...output_file.models import OutputFile
-from ...common.path_utils import resolve_config_key, resolve_path
-
+from ...common.path_utils import resolve_config_key, resolve_path, is_folder_block
 # ─────────────────────────────────────────────────────────────
 # Constants
 # ─────────────────────────────────────────────────────────────
@@ -229,29 +228,7 @@ def _write_json_sidecar(original: Path, config: dict) -> None:
 # Sync input files into work_dir
 # ─────────────────────────────────────────────────────────────
 
-def _sync_input_files(
-    etl: ETL,
-    execution: Execution,
-    work_dir: Path,
-    effective_config: dict,  # MUTATED in-place: absolute input paths are rewritten
-) -> None:
-    """
-    For each config key classified as 'input':
-
-    Absolute path (e.g. "D:/reports/clients.xlsx"):
-      - Copy the file/dir into work_dir/data/ so the script has a local copy.
-      - Patch effective_config[key] to point at the local copy so the script
-        opens it successfully regardless of network/permission issues on the
-        original location.  (BUG A fix)
-
-    Relative path (e.g. "data/input.xlsx"):
-      - Mirror from work_dir/etl_code/<rel> to work_dir/<rel> so the script
-        can open it using a CWD-relative path (CWD = work_dir at runtime).
-
-    Non-existent absolute input:
-      - Log a warning but continue — the script may handle missing files itself,
-        or the path may be intentionally created by a preceding step.
-    """
+def _sync_input_files(etl, execution, work_dir, effective_config):
     classifications = _merged_classifications(etl, execution)
     if not classifications:
         return
@@ -267,54 +244,45 @@ def _sync_input_files(
         if not raw_val:
             continue
 
-        raw_str = str(raw_val)
+        # Handle folder blocks
+        if isinstance(raw_val, dict) and is_folder_block(raw_val):
+            folder_raw = raw_val.get("path", "").strip()
+            if not folder_raw:
+                continue
+            raw_str = folder_raw
+        else:
+            raw_str = str(raw_val)
+
         p_raw = Path(raw_str)
 
         if p_raw.is_absolute():
-            # ── Absolute external path ────────────────────────────────
             src = p_raw
             if not src.exists():
                 print(f"[SYNC] Warning: absolute input not found: {src}")
-                # Leave config as-is; script may cope or fail meaningfully
                 continue
-
             _ensure_dir(data_dir)
-
-            if src.is_file():
-                dest_file = data_dir / src.name
-                shutil.copy2(str(src), str(dest_file))
-                print(f"[SYNC] ✓ Copied absolute input: {src.name} → data/")
-                # BUG A fix: rewrite config so the script finds the local copy
-                effective_config[key] = str(dest_file)
-                synced += 1
-
-            elif src.is_dir():
+            if src.is_dir():
                 dest_dir = work_dir / src.name
                 if dest_dir.exists():
                     _safe_rmtree(dest_dir)
                 shutil.copytree(str(src), str(dest_dir))
-                print(f"[SYNC] ✓ Copied absolute input dir: {src.name}/ → work_dir/")
-                # Rewrite to local copy
-                effective_config[key] = str(dest_dir)
+                print(f"[SYNC] ✓ Copied absolute input dir: {src.name}/")
+                if isinstance(raw_val, dict):
+                    updated_block = dict(raw_val)
+                    updated_block["path"] = str(dest_dir)
+                    effective_config[key] = updated_block
+                else:
+                    effective_config[key] = str(dest_dir)
                 synced += 1
-
         else:
-            # ── Relative path — mirror from etl_code to work_dir root ─
             src_in_code = (work_dir / "etl_code" / p_raw).resolve()
             dst_from_root = (work_dir / p_raw).resolve()
-
             if src_in_code.exists() and not dst_from_root.exists():
                 dst_from_root.parent.mkdir(parents=True, exist_ok=True)
-                if src_in_code.is_file():
-                    shutil.copy2(str(src_in_code), str(dst_from_root))
-                    print(f"[SYNC] ✓ Mirrored relative input: {raw_str}")
-                    synced += 1
-                elif src_in_code.is_dir():
+                if src_in_code.is_dir():
                     shutil.copytree(str(src_in_code), str(dst_from_root))
                     print(f"[SYNC] ✓ Mirrored relative input dir: {raw_str}")
                     synced += 1
-            elif not src_in_code.exists():
-                print(f"[SYNC] Warning: relative input not found in etl_code: {raw_str}")
 
     print(f"[SYNC] {synced} input(s) synced")
 

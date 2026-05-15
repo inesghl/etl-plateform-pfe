@@ -9,7 +9,6 @@ logger = logging.getLogger("scheduling")
 
 
 def _is_admin(user) -> bool:
-    """Check admin status using the 'role' field your User model actually has."""
     return getattr(user, "role", None) == "admin"
 
 
@@ -40,22 +39,22 @@ def _do_check() -> None:
         return
 
     for schedule in due:
-        # Guard: don't double-fire within the same minute
         if schedule.last_triggered_at:
             lt = timezone.localtime(schedule.last_triggered_at)
             if (lt.date() == now.date()
                     and lt.hour == now.hour
                     and lt.minute == now.minute):
-                logger.debug(
-                    "[SCHEDULER] Already fired '%s' this minute — skip",
-                    schedule.etl.name,
-                )
                 continue
 
         etl = schedule.etl
-        logger.info("[SCHEDULER] Firing '%s' (%s)", etl.name, schedule.frequency)
+        creator = etl.created_by
 
-        launch_owner = schedule.launched_for or etl.created_by
+        # The execution is always owned by the creator (or launched_for if specific)
+        # For group: owned by creator, but all group members get notified
+        if schedule.notify_target == "specific" and schedule.launched_for:
+            launch_owner = schedule.launched_for
+        else:
+            launch_owner = creator
 
         execution = Execution.objects.create(
             etl=etl,
@@ -65,17 +64,48 @@ def _do_check() -> None:
             execution_label=f"{etl.name} — scheduled {now.strftime('%Y-%m-%d')}",
         )
 
+        logger.info(
+            "[SCHEDULER] ✓ Execution %s created for '%s' (owner: %s)",
+            execution.id, etl.name, launch_owner.username,
+        )
+
         _send_schedule_notifications(schedule, execution, now)
 
         schedule.last_triggered_at = now
         schedule.save(update_fields=["last_triggered_at"])
 
-        logger.info(
-            "[SCHEDULER] ✓ Execution %s created for '%s' (owner: %s)",
-            execution.id,
-            etl.name,
-            launch_owner.username,
-        )
+
+def _get_launch_user_ids(schedule) -> set:
+    """
+    Returns the set of user IDs who should see the launch button
+    and receive the in-app notification.
+    """
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    etl = schedule.etl
+    creator = etl.created_by
+    ids: set = set()
+
+    if not _is_admin(creator):
+        # Regular user created this schedule — only they launch it
+        ids.add(creator.id)
+        return ids
+
+    # Admin-created schedule
+    if schedule.notify_target == "group":
+        for group in etl.allowed_groups.all():
+            for member in group.members.filter(is_active=True):
+                ids.add(member.id)
+    elif schedule.notify_target == "specific":
+        if schedule.launched_for_id:
+            ids.add(schedule.launched_for_id)
+        else:
+            ids.add(creator.id)
+    else:
+        # "creator" target — admin sees it themselves
+        ids.add(creator.id)
+
+    return ids
 
 
 def _send_schedule_notifications(schedule, execution, now: datetime) -> None:
@@ -88,9 +118,6 @@ def _send_schedule_notifications(schedule, execution, now: datetime) -> None:
             logger.warning(
                 "[SCHEDULER] Email to %s failed for '%s': %s", addr, etl.name, e
             )
-
-    if not schedule.all_notify_emails:
-        logger.warning("[SCHEDULER] No notify emails for schedule %s", schedule.id)
 
     _create_inapp_notifications(schedule, execution)
 
@@ -115,32 +142,14 @@ def _create_inapp_notifications(schedule, execution) -> None:
             f"{schedule.time_of_day.strftime('%H:%M')}."
         )
 
-        launch_user_ids: set = set()
+        launch_user_ids = _get_launch_user_ids(schedule)
 
-        if not _is_admin(creator):
-            # User-created schedule: only the creator launches
-            launch_user_ids.add(creator.id)
-        else:
-            # Admin-created schedule
-            if schedule.notify_target == "group":
-                for group in etl.allowed_groups.all():
-                    for member in group.members.filter(is_active=True):
-                        launch_user_ids.add(member.id)
-            elif schedule.notify_target == "specific":
-                if schedule.launched_for_id:
-                    launch_user_ids.add(schedule.launched_for_id)
-                else:
-                    launch_user_ids.add(creator.id)
-            else:
-                launch_user_ids.add(creator.id)
-
-        # All admin IDs — use role field
         admin_ids = set(
             User.objects.filter(role="admin", is_active=True)
             .values_list("id", flat=True)
         )
 
-        # Launch notifications (non-admins only)
+        # Send launch notification to each assigned non-admin user
         for uid in launch_user_ids:
             if uid in admin_ids:
                 continue
@@ -156,8 +165,8 @@ def _create_inapp_notifications(schedule, execution) -> None:
             except User.DoesNotExist:
                 pass
 
-        # Notify creator if not already notified and not an admin
-        if creator.id not in launch_user_ids and creator.id not in admin_ids:
+        # If the creator is an admin and target is "creator", notify them too
+        if _is_admin(creator) and schedule.notify_target == "creator":
             Notification.objects.create(
                 user=creator,
                 title=f"⏰ Scheduled run ready: {etl.name}",
@@ -166,7 +175,7 @@ def _create_inapp_notifications(schedule, execution) -> None:
                 execution=execution,
             )
 
-        # Audit notification for every admin
+        # Audit notification for ALL admins regardless
         for admin in User.objects.filter(role="admin", is_active=True):
             Notification.objects.create(
                 user=admin,
@@ -199,8 +208,6 @@ def _send_schedule_email(schedule, execution, recipient: str, now: datetime) -> 
         f"  3. Review & update the config (input file paths may have changed)\n"
         f"  4. Click Launch\n\n"
         f"Quick link: {deep_link}\n\n"
-        f"ETL: {etl.name} v{etl.version}\n"
-        f"Schedule: {freq_label} at {schedule.time_of_day.strftime('%H:%M')}\n\n"
         f"──\nETL Platform"
     )
     html_body  = _build_schedule_html(etl, execution, freq_label, deep_link, now, schedule)
@@ -216,7 +223,6 @@ def _freq_label(schedule) -> str:
     DAYS   = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
               "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
     if schedule.frequency == "weekly":
         return f"weekly (every {DAYS[schedule.day_of_week or 0]})"
     if schedule.frequency == "monthly":
@@ -243,8 +249,7 @@ def _build_schedule_html(etl, execution, freq_label, deep_link, now, schedule) -
         for i, s in enumerate(steps)
     )
     return f"""<!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<html lang="en"><head><meta charset="UTF-8"></head>
 <body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
              background:#f8fafc;margin:0;padding:20px;color:#1e293b;">
   <div style="max-width:540px;margin:0 auto;background:#fff;border-radius:12px;
@@ -253,7 +258,7 @@ def _build_schedule_html(etl, execution, freq_label, deep_link, now, schedule) -
       <span style="display:inline-block;padding:4px 12px;border-radius:99px;
                    font-size:12px;font-weight:600;background:#2563eb;color:#fff;
                    margin-bottom:10px;">⏰ Scheduled Run Due</span>
-      <p style="font-size:20px;font-weight:700;margin:0 0 4px;color:#0f172a;">{etl.name}</p>
+      <p style="font-size:20px;font-weight:700;margin:0 0 4px;">{etl.name}</p>
       <p style="font-size:13px;color:#64748b;margin:0;">
         {freq_label} · {now.strftime('%A, %d %B %Y at %H:%M')}
       </p>
@@ -261,13 +266,10 @@ def _build_schedule_html(etl, execution, freq_label, deep_link, now, schedule) -
     <div style="padding:24px;">
       <p style="font-size:14px;color:#334155;margin:0 0 20px;line-height:1.6;">
         Your scheduled run for <strong>{etl.name}</strong> is due.
-        Before launching, please <strong>review the configuration</strong> —
-        input file paths may have changed.
+        Before launching, please <strong>review the configuration</strong>.
       </p>
       <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;
                   padding:16px;margin-bottom:20px;">
-        <p style="font-size:11px;font-weight:700;text-transform:uppercase;
-                  letter-spacing:.06em;color:#94a3b8;margin:0 0 12px;">What to do</p>
         {steps_html}
       </div>
       <a href="{deep_link}"
@@ -276,13 +278,6 @@ def _build_schedule_html(etl, execution, freq_label, deep_link, now, schedule) -
                 font-weight:600;font-size:14px;">
         Open Platform → Review &amp; Launch
       </a>
-      <p style="font-size:11px;color:#94a3b8;margin:16px 0 0;text-align:center;">
-        Execution ID: {execution.id}
-      </p>
-    </div>
-    <div style="padding:14px 24px;font-size:11px;color:#94a3b8;text-align:center;
-                border-top:1px solid #f1f5f9;">
-      ETL Platform · {freq_label} at {schedule.time_of_day.strftime('%H:%M')}
     </div>
   </div>
 </body></html>"""

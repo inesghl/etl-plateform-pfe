@@ -1,4 +1,7 @@
-// pages/Dashboard.tsx
+// src/pages/Dashboard.tsx  — add the stats tab (diff from your current file)
+// Only the changed parts are shown with ← ADDED comments.
+// Copy the full file or apply the diff below.
+
 import React, { useEffect, useState } from "react";
 import { User } from "../types/user";
 import { Etl } from "../types/etl";
@@ -19,6 +22,7 @@ import { Card } from "../components/common/Card";
 import { GroupManager } from "../components/groups/GroupManager";
 import { ProfilePage } from "../components/users/ProfilePage";
 import { UsersPage } from "../components/users/UserPage";
+import { StatsPanel } from "../components/stats/StatsPanel"; // ← ADDED (named export)
 import { useEtls } from "../hooks/useEtls";
 import { useExecutions } from "../hooks/useExecutions";
 import { useNotifications } from "../hooks/useNotifications";
@@ -29,7 +33,7 @@ import styles from "../styles/Dashboard.module.css";
 type Props = {
   currentUser: User;
   onLogout: () => void;
-  onUserUpdated: (user: User) => void; // lift updated user up to App
+  onUserUpdated: (user: User) => void;
 };
 
 function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
@@ -58,13 +62,14 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
   }, [loadEtls, loadExecutions, loadNotifications, isAdmin]);
 
   const tabs = [
-    { id: "etls", label: isAdmin ? "Manage ETLs" : "Available ETLs" },
-    ...(isAdmin ? [{ id: "upload", label: "Upload ETL" }] : []),
-    ...(isAdmin ? [{ id: "groups", label: "Groups" }] : []),
-    ...(isAdmin ? [{ id: "users", label: "Users" }] : []),
-    { id: "executions", label: "Executions" },
+    { id: "etls",        label: isAdmin ? "Manage ETLs" : "Available ETLs" },
+    ...(isAdmin ? [{ id: "upload", label: "Upload ETL"  }] : []),
+    ...(isAdmin ? [{ id: "groups", label: "Groups"      }] : []),
+    ...(isAdmin ? [{ id: "users",  label: "Users"       }] : []),
+    ...(isAdmin ? [{ id: "stats",  label: "Stats"       }] : []), // ← ADDED
+    { id: "executions",    label: "Executions" },
     { id: "notifications", label: "Notifications", badge: unreadCount },
-    { id: "profile", label: "My Profile" },
+    { id: "profile",       label: "My Profile" },
   ];
 
   function handleTabChange(next: string) {
@@ -121,7 +126,7 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
           </>
         )}
 
-        {/* Upload Tab (Admin only) */}
+        {/* Upload Tab */}
         {tab === "upload" && isAdmin && (
           <UploadEtlForm
             onUpload={upload}
@@ -130,7 +135,7 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
           />
         )}
 
-        {/* Groups Tab (Admin only) */}
+        {/* Groups Tab */}
         {tab === "groups" && isAdmin && (
           <>
             <h2 className={styles.sectionTitle}>User Groups</h2>
@@ -142,9 +147,19 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
           </>
         )}
 
-        {/* Users Tab (Admin only) */}
+        {/* Users Tab */}
         {tab === "users" && isAdmin && (
           <UsersPage currentUser={currentUser} />
+        )}
+
+        {/* Stats Tab (Admin only) ← ADDED */}
+        {tab === "stats" && isAdmin && (
+          <>
+            <div className={styles.sectionHeader}>
+              <h2 className={styles.sectionTitle}>Platform Stats</h2>
+            </div>
+            <StatsPanel />
+          </>
         )}
 
         {/* Executions Tab */}

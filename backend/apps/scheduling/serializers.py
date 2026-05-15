@@ -1,5 +1,6 @@
-# scheduling/serializers.py  — full replacement
+# scheduling/serializers.py
 from rest_framework import serializers
+from django.contrib.auth import get_user_model
 from .models import ETLSchedule
 
 
@@ -10,6 +11,15 @@ class ETLScheduleSerializer(serializers.ModelSerializer):
         child=serializers.EmailField(), read_only=True
     )
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        User = get_user_model()
+        self.fields["launched_for"] = serializers.PrimaryKeyRelatedField(
+            queryset=User.objects.all(),
+            allow_null=True,
+            required=False,
+        )
+
     class Meta:
         model  = ETLSchedule
         fields = [
@@ -17,16 +27,13 @@ class ETLScheduleSerializer(serializers.ModelSerializer):
             "is_active",
             "frequency",
             "time_of_day",
-            "day_of_week",     # weekly
-            "day_of_month",    # monthly
-            "month_of_year",   # yearly
-            "day_of_year",     # yearly
-            # notification
+            "day_of_week",
+            "day_of_month",
+            "month_of_year",
+            "day_of_year",
             "notify_target", "notify_specific_email", "backup_email",
             "effective_email", "all_notify_emails",
-            # launch ownership
             "launched_for",
-            # timestamps
             "last_triggered_at", "created_at", "updated_at",
         ]
         read_only_fields = [
@@ -38,14 +45,12 @@ class ETLScheduleSerializer(serializers.ModelSerializer):
     def validate(self, data):
         freq = data.get("frequency", getattr(self.instance, "frequency", "daily"))
 
-        # weekly
         if freq == "weekly" and data.get("day_of_week") is None:
             if not (self.instance and self.instance.day_of_week is not None):
                 raise serializers.ValidationError(
                     {"day_of_week": "Required for weekly frequency."}
                 )
 
-        # monthly
         if freq == "monthly":
             dom = data.get("day_of_month")
             if dom is None:
@@ -58,7 +63,6 @@ class ETLScheduleSerializer(serializers.ModelSerializer):
                     {"day_of_month": "Must be between 1 and 28."}
                 )
 
-        # yearly
         if freq == "yearly":
             moy = data.get("month_of_year")
             doy = data.get("day_of_year")
@@ -83,9 +87,9 @@ class ETLScheduleSerializer(serializers.ModelSerializer):
 
         # Non-admins are locked to notify_target="creator"
         request = self.context.get("request")
-        if request and not getattr(request.user, "is_admin", False):
+        if request and not (getattr(request.user, "role", None) == "admin"):
             data["notify_target"] = "creator"
             data["notify_specific_email"] = ""
-            data["launched_for"] = None  # always themselves (creator)
+            data["launched_for"] = None
 
         return data

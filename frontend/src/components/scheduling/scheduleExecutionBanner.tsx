@@ -1,17 +1,9 @@
-/**
- * ScheduledExecutionBanner.tsx  — full replacement
- *
- * Shows a "Review & Launch" banner on any PENDING scheduled execution
- * where the current user is the owner (launched_by).
- * Previously this was only meaningful for admins; now regular users who
- * were assigned a scheduled run also see it.
- */
+// ScheduledExecutionBanner.tsx
 import React from "react";
 import { Execution } from "../../types/execution";
 
 type Props = {
   execution: Execution;
-  /** The currently logged-in user's id */
   currentUserId: string;
   onLaunch: (exec: Execution) => void;
 };
@@ -19,13 +11,10 @@ type Props = {
 export function ScheduledExecutionBanner({ execution, currentUserId, onLaunch }: Props) {
   if (execution.status !== "PENDING") return null;
 
-  // Show for any execution that has "scheduled" in the label
   const isScheduled = execution.execution_label?.toLowerCase().includes("scheduled") ?? false;
   if (!isScheduled) return null;
 
-  // Only show the launch CTA to the user who owns this pending run.
-  // launched_by may be an id (number/string) or a nested object depending
-  // on your serialiser — normalise to string for comparison.
+  // launched_by may be object or id
   const launchedById =
     typeof execution.launched_by === "object"
       ? String((execution.launched_by as any)?.id ?? "")
@@ -33,6 +22,8 @@ export function ScheduledExecutionBanner({ execution, currentUserId, onLaunch }:
 
   const isOwner = launchedById === String(currentUserId);
 
+  // Show the banner to the owner OR to anyone (the banner text differs)
+  // The launch button only shows to the owner
   return (
     <div style={{
       marginTop: 8, padding: "9px 12px",
@@ -52,7 +43,6 @@ export function ScheduledExecutionBanner({ execution, currentUserId, onLaunch }:
             : "Waiting for the assigned user to review and launch."}
         </div>
       </div>
-
       {isOwner && (
         <button
           onClick={() => onLaunch(execution)}

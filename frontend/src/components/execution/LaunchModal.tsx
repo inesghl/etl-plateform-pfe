@@ -88,7 +88,73 @@ function getFolderFileEntries(block: Record<string, any>): Array<{ key: string; 
     .filter(([k]) => k.toLowerCase().startsWith("file") && k.toLowerCase() !== "files number")
     .map(([key, value]) => ({ key, value: String(value ?? "") }));
 }
+function looksLikeDate(key: string, value: any): boolean {
+  const k = key.toLowerCase().replace(/[_-]/g, "");
+  const dateKeywords = ["date", "from", "to", "start", "end", "period", "month", "year", "since", "until"];
+  return dateKeywords.some(kw => k.includes(kw));
+}
 
+function DateConfigField({ fieldKey, currentVal, baseVal, isChanged, onChange, onReset }: {
+  fieldKey: string; currentVal: string; baseVal: string; isChanged: boolean;
+  onChange: (v: string) => void; onReset: () => void;
+}) {
+  // Quick-pick shortcuts for common ETL patterns
+  const today = new Date();
+  const firstOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
+    .toISOString().split("T")[0];
+  const firstOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1)
+    .toISOString().split("T")[0];
+  const lastOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0)
+    .toISOString().split("T")[0];
+
+  return (
+    <div style={{
+      padding: "10px 12px", borderRadius: T.r,
+      border: `1px solid ${isChanged ? "#f59e0b55" : T.border}`,
+      background: isChanged ? T.warnBg : T.surface,
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontFamily: T.mono, fontSize: 12, color: T.textMid, fontWeight: 600 }}>{fieldKey}</span>
+          <Chip color="#0891b2">date</Chip>
+        </div>
+        {isChanged && (
+          <button onClick={onReset} style={{ fontSize: 11, color: T.textMuted, background: "none", border: "none", cursor: "pointer" }}>
+            ↺ reset
+          </button>
+        )}
+      </div>
+      <input
+        type="date"
+        value={currentVal}
+        onChange={e => onChange(e.target.value)}
+        style={{ ...inputStyle, background: isChanged ? "#fff" : T.inputBg }}
+      />
+      {/* Shortcuts */}
+      <div style={{ display: "flex", gap: 5, marginTop: 6, flexWrap: "wrap" }}>
+        {[
+          { label: "Today", val: today.toISOString().split("T")[0] },
+          { label: "1st this month", val: firstOfMonth },
+          { label: "1st last month", val: firstOfLastMonth },
+          { label: "End last month", val: lastOfLastMonth },
+        ].map(s => (
+          <button key={s.label} onClick={() => onChange(s.val)} style={{
+            fontSize: 10, padding: "2px 8px", borderRadius: 4,
+            border: `1px solid ${T.border}`, background: "#fff",
+            color: T.textMid, cursor: "pointer",
+          }}>
+            {s.label}
+          </button>
+        ))}
+      </div>
+      {isChanged && (
+        <div style={{ fontSize: 11, color: T.textMuted, marginTop: 4 }}>
+          Default: <code style={{ fontFamily: T.mono }}>{baseVal || "(empty)"}</code>
+        </div>
+      )}
+    </div>
+  );
+}
 // ─────────────────────────────────────────────────────────────
 // Design tokens
 // ─────────────────────────────────────────────────────────────
@@ -336,10 +402,15 @@ function LaunchModal({ etl, onClose, onDone, onCreateExecution, onLaunch }: Prop
           ? <InfoBox>No path-like values detected. You can launch directly.</InfoBox>
           : (
             <>
-              <p style={{ fontSize: 12, color: T.textMuted, margin: "0 0 14px" }}>
-                Label each path as <strong>Input</strong> (ETL reads it),{" "}
-                <strong>Output</strong> (ETL writes it), or <strong>Skip</strong>.
-              </p>
+             <p style={{ fontSize: 12, color: T.textMuted, margin: "0 0 14px" }}>
+  Label each path as <strong>Input</strong> (ETL reads from it),{" "}
+  <strong>Output</strong> (ETL writes to it), or <strong>Skip</strong> (ignore).
+  <br />
+  <span style={{ color: T.warn }}>
+    Short names like <code>logs</code>, <code>outputs</code>, <code>deleted</code> are
+    typically <strong>Output</strong> folders.
+  </span>
+</p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {keys.map(key => {
                   const rawVal = (prepareData.execution_config || prepareData.etl_config)[key];
@@ -418,21 +489,34 @@ function LaunchModal({ etl, onClose, onDone, onCreateExecution, onLaunch }: Prop
               ))}
 
               {/* Simple keys */}
-              {simpleKeys.map(key => {
-                const baseVal   = String(etlConfig[key] ?? "");
-                const currentVal = overrides[key] !== undefined ? overrides[key] : baseVal;
-                const isChanged  = currentVal !== baseVal;
-                return (
-                  <ConfigField
-                    key={key} fieldKey={key} currentVal={currentVal} baseVal={baseVal}
-                    isChanged={isChanged} saveAsDefault={!!saveAsDefault[key]}
-                    isAdmin={!!(etl as any).is_admin_user}
-                    onChange={v => setOverrides(prev => ({ ...prev, [key]: v }))}
-                    onReset={() => setOverrides(prev => { const n = { ...prev }; delete n[key]; return n; })}
-                    onToggleSaveAsDefault={v => setSaveAsDefault(prev => ({ ...prev, [key]: v }))}
-                  />
-                );
-              })}
+           {simpleKeys.map(key => {
+  const baseVal    = String(etlConfig[key] ?? "");
+  const currentVal = overrides[key] !== undefined ? overrides[key] : baseVal;
+  const isChanged  = currentVal !== baseVal;
+
+  // Date fields get their own picker
+  if (looksLikeDate(key, etlConfig[key])) {
+    return (
+      <DateConfigField
+        key={key} fieldKey={key} currentVal={currentVal} baseVal={baseVal}
+        isChanged={isChanged}
+        onChange={v => setOverrides(prev => ({ ...prev, [key]: v }))}
+        onReset={() => setOverrides(prev => { const n = { ...prev }; delete n[key]; return n; })}
+      />
+    );
+  }
+
+  return (
+    <ConfigField
+      key={key} fieldKey={key} currentVal={currentVal} baseVal={baseVal}
+      isChanged={isChanged} saveAsDefault={!!saveAsDefault[key]}
+      isAdmin={!!(etl as any).is_admin_user}
+      onChange={v => setOverrides(prev => ({ ...prev, [key]: v }))}
+      onReset={() => setOverrides(prev => { const n = { ...prev }; delete n[key]; return n; })}
+      onToggleSaveAsDefault={v => setSaveAsDefault(prev => ({ ...prev, [key]: v }))}
+    />
+  );
+})}
             </div>
           )
         }
@@ -585,7 +669,32 @@ function FolderBlockEditor({
               min={0}
             />
           </div>
-
+          {/* Check mode */}
+<div>
+  <label style={{ fontSize: 11, fontWeight: 600, color: T.textMid, display: "block", marginBottom: 3 }}>
+    check_mode{" "}
+    <span style={{ fontWeight: 400, color: T.textMuted }}>
+      — how to verify this folder
+    </span>
+  </label>
+  <select
+    value={String(local["check_mode"] ?? "auto")}
+    onChange={e => update("check_mode", e.target.value)}
+    style={{ ...inputStyle, cursor: "pointer" }}
+  >
+    <option value="auto">auto — system decides</option>
+    <option value="count">count — only verify total file count</option>
+    <option value="files">files — only verify each named file exists</option>
+    <option value="both">both — verify count AND each named file</option>
+  </select>
+  <div style={{ fontSize: 10, color: T.textMuted, marginTop: 3 }}>
+    {local["check_mode"] === "count" && "Will only check that the folder contains the expected number of files."}
+    {local["check_mode"] === "files" && "Will check each file1/file2/… entry exists. File count is ignored."}
+    {local["check_mode"] === "both" && "Will check both file count AND each named file."}
+    {(!local["check_mode"] || local["check_mode"] === "auto") &&
+      "Auto: uses 'files' if fileN entries exist, 'count' if only a number is given."}
+  </div>
+</div>
           {/* File entries */}
           {fileEntries.length > 0 && (
             <div>

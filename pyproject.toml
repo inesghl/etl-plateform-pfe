@@ -2,4 +2,14 @@
 name = "etl-plateform-pfe"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "django>=6.0.5",
+    "django-cors-headers==4.3.1",
+    "django-extensions==3.2.3",
+    "djangorestframework==3.14.0",
+    "djangorestframework-simplejwt==5.3.1",
+    "djangorestframework-stubs>=3.16.9",
+    "pillow==10.2.0",
+    "psycopg2-binary==2.9.9",
+    "python-dotenv==1.0.1",
+]

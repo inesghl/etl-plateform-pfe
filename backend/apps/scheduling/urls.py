@@ -1,10 +1,7 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from rest_framework.routers import SimpleRouter
 from .views import ETLScheduleViewSet
 
-router = DefaultRouter()
+router = SimpleRouter()
 router.register(r"schedules", ETLScheduleViewSet, basename="etlschedule")
-
-urlpatterns = [
-    path("", include(router.urls)),
-]
+urlpatterns = [path("", include(router.urls))]
