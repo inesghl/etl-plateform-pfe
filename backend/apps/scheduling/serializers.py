@@ -1,95 +1,92 @@
 # scheduling/serializers.py
 from rest_framework import serializers
-from django.contrib.auth import get_user_model
 from .models import ETLSchedule
 
 
 class ETLScheduleSerializer(serializers.ModelSerializer):
-    etl_name          = serializers.CharField(source="etl.name", read_only=True)
-    effective_email   = serializers.CharField(read_only=True)
-    all_notify_emails = serializers.ListField(
-        child=serializers.EmailField(), read_only=True
-    )
+    """
+    Serializer for ETLSchedule.
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        User = get_user_model()
-        self.fields["launched_for"] = serializers.PrimaryKeyRelatedField(
-            queryset=User.objects.all(),
-            allow_null=True,
-            required=False,
-        )
+    Read:  all fields are visible to everyone (owner + admins).
+    Write: non-admin users can write every field EXCEPT notify_target
+           and notify_specific_email — those are admin-only.
+           The backend always notifies the ETL creator regardless, so
+           regular users get their notifications without touching those fields.
+    """
+
+    # Always expose these computed properties so the frontend can display them.
+    effective_email    = serializers.ReadOnlyField()
+    all_notify_emails  = serializers.ReadOnlyField()
+    etl_name           = serializers.SerializerMethodField()
 
     class Meta:
         model  = ETLSchedule
         fields = [
-            "id", "etl", "etl_name",
+            "id",
+            "etl",
+            "etl_name",
             "is_active",
             "frequency",
             "time_of_day",
             "day_of_week",
             "day_of_month",
             "month_of_year",
-            "day_of_year",
-            "notify_target", "notify_specific_email", "backup_email",
-            "effective_email", "all_notify_emails",
-            "launched_for",
-            "last_triggered_at", "created_at", "updated_at",
+            # notification
+            "notify_target",
+            "notify_specific_email",
+            "backup_email",
+            "effective_email",
+            "all_notify_emails",
+            # timestamps
+            "last_triggered_at",
+            "created_at",
+            "updated_at",
         ]
-        read_only_fields = [
-            "id", "etl_name", "effective_email",
-            "all_notify_emails", "last_triggered_at",
-            "created_at", "updated_at",
-        ]
+        read_only_fields = ["id", "created_at", "updated_at", "last_triggered_at"]
 
-    def validate(self, data):
-        freq = data.get("frequency", getattr(self.instance, "frequency", "daily"))
+    def get_etl_name(self, obj) -> str:
+        return obj.etl.name if obj.etl_id else ""
 
-        if freq == "weekly" and data.get("day_of_week") is None:
-            if not (self.instance and self.instance.day_of_week is not None):
-                raise serializers.ValidationError(
-                    {"day_of_week": "Required for weekly frequency."}
-                )
-
-        if freq == "monthly":
-            dom = data.get("day_of_month")
-            if dom is None:
-                if not (self.instance and self.instance.day_of_month is not None):
-                    raise serializers.ValidationError(
-                        {"day_of_month": "Required for monthly frequency."}
-                    )
-            elif not (1 <= dom <= 28):
-                raise serializers.ValidationError(
-                    {"day_of_month": "Must be between 1 and 28."}
-                )
-
-        if freq == "yearly":
-            moy = data.get("month_of_year")
-            doy = data.get("day_of_year")
-            if moy is None:
-                if not (self.instance and self.instance.month_of_year is not None):
-                    raise serializers.ValidationError(
-                        {"month_of_year": "Required for yearly frequency."}
-                    )
-            elif not (1 <= moy <= 12):
-                raise serializers.ValidationError(
-                    {"month_of_year": "Must be between 1 and 12."}
-                )
-            if doy is None:
-                if not (self.instance and self.instance.day_of_year is not None):
-                    raise serializers.ValidationError(
-                        {"day_of_year": "Required for yearly frequency."}
-                    )
-            elif not (1 <= doy <= 28):
-                raise serializers.ValidationError(
-                    {"day_of_year": "Must be between 1 and 28."}
-                )
-
-        # Non-admins are locked to notify_target="creator"
+    # ── Admin-only write fields ───────────────────────────────────────────────
+    def validate(self, attrs):
         request = self.context.get("request")
-        if request and not (getattr(request.user, "role", None) == "admin"):
-            data["notify_target"] = "creator"
-            data["notify_specific_email"] = ""
-            data["launched_for"] = None
+        user    = getattr(request, "user", None)
+        is_admin = getattr(user, "is_admin", False) if user else False
 
-        return data
+        if not is_admin:
+            # Silently drop admin-only fields — don't raise, just ignore.
+            attrs.pop("notify_target",         None)
+            attrs.pop("notify_specific_email", None)
+
+        return attrs
+
+    # ── Cross-field validation ────────────────────────────────────────────────
+    def validate_day_of_week(self, value):
+        if value is not None and not (0 <= value <= 6):
+            raise serializers.ValidationError("day_of_week must be 0 (Monday) – 6 (Sunday).")
+        return value
+
+    def validate_day_of_month(self, value):
+        if value is not None and not (1 <= value <= 31):
+            raise serializers.ValidationError("day_of_month must be between 1 and 31.")
+        return value
+
+    def validate_month_of_year(self, value):
+        if value is not None and not (1 <= value <= 12):
+            raise serializers.ValidationError("month_of_year must be between 1 and 12.")
+        return value
+
+    # scheduling/serializers.py
+    def validate(self, attrs):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        is_admin = getattr(user, "is_admin", False) if user else False
+
+        if not is_admin:
+            attrs.pop("notify_target", None)
+            attrs.pop("notify_specific_email", None)
+            # Ensure non-admins always get a safe default
+            if "notify_target" not in attrs:
+                attrs.setdefault("notify_target", "creator")
+
+        return attrs

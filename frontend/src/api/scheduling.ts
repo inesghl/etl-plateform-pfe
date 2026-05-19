@@ -1,4 +1,4 @@
-// api/scheduling.ts  — full replacement
+// api/scheduling.ts
 import { apiFetch } from "./api";
 
 export type Frequency    = "daily" | "weekly" | "monthly" | "yearly";
@@ -9,51 +9,41 @@ export interface ETLSchedule {
   etl: string;
   etl_name: string;
   is_active: boolean;
-
-  frequency:     Frequency;
-  time_of_day:   string;         // "HH:MM:SS"
-  day_of_week:   number | null;  // 0=Mon … 6=Sun  (weekly)
-  day_of_month:  number | null;  // 1-28           (monthly)
-  month_of_year: number | null;  // 1-12           (yearly)
-  day_of_year:   number | null;  // 1-28           (yearly)
-
+  frequency: Frequency;
+  time_of_day: string;            // "HH:MM:SS"
+  day_of_week: number | null;     // 0=Mon … 6=Sun
+  day_of_month: number | null;    // 1–31  (backend clamps to month length)
+  month_of_year: number | null;   // 1–12  (yearly only)
   // notification
-  notify_target:         NotifyTarget;
+  notify_target: NotifyTarget;
   notify_specific_email: string;
-  backup_email:          string;
-  effective_email:       string;
-  all_notify_emails:     string[];
-
-  // launch ownership  (user id or null → creator)
-  launched_for: string | null;
-
+  backup_email: string;
+  effective_email: string;
+  all_notify_emails: string[];
   // timestamps
   last_triggered_at: string | null;
-  created_at:        string;
-  updated_at:        string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface SchedulePayload {
   etl: string;
-  frequency:     Frequency;
-  time_of_day:   string;         // "HH:MM"
-  day_of_week?:   number | null;
-  day_of_month?:  number | null;
-  month_of_year?: number | null;
-  day_of_year?:   number | null;
+  frequency: Frequency;
+  time_of_day: string;            // "HH:MM"
+  day_of_week?: number | null;
+  day_of_month?: number | null;
+  month_of_year?: number | null;  // yearly only
   // notification
-  notify_target?:         NotifyTarget;
+  notify_target?: NotifyTarget;
   notify_specific_email?: string;
-  backup_email?:          string;
-  // launch
-  launched_for?:          string | null;
-  is_active?:             boolean;
+  backup_email?: string;
+  is_active?: boolean;
 }
 
 export async function fetchSchedules(): Promise<ETLSchedule[]> {
   const data = await apiFetch("/schedules/");
-  if (Array.isArray(data))           return data;
-  if (Array.isArray(data?.results))  return data.results;
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.results)) return data.results;
   return [];
 }
 
@@ -89,7 +79,12 @@ export async function toggleSchedule(id: string): Promise<ETLSchedule> {
   return apiFetch(`/schedules/${id}/toggle/`, { method: "POST" });
 }
 
-/** Admin-only: immediately create a PENDING execution for this schedule */
+/**
+ * Immediately create a PENDING execution for this schedule.
+ * Available to ALL users for ETLs they own (not admin-only).
+ * The backend scopes access via get_queryset — users can only
+ * trigger their own schedules.
+ */
 export async function fireScheduleNow(
   id: string,
 ): Promise<{ detail: string; execution_id: string }> {

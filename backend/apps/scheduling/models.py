@@ -1,19 +1,30 @@
-# scheduling/models.py  — full replacement
-# Key additions:
-#   - "yearly" frequency with month_of_year + day_of_year fields
-#   - launched_for FK: the user who should see and launch the pending execution
-#   - due_today_at() handles yearly check
-#   - all_notify_emails / effective_email updated
+import uuid
+import calendar
 
 from django.db import models
-from django.conf import settings
 
 
-FREQUENCY_CHOICES = [
+FREQ_CHOICES = [
     ("daily",   "Daily"),
     ("weekly",  "Weekly"),
     ("monthly", "Monthly"),
     ("yearly",  "Yearly"),
+]
+
+MONTH_CHOICES = [
+    (1, "January"), (2, "February"), (3, "March"), (4, "April"),
+    (5, "May"), (6, "June"), (7, "July"), (8, "August"),
+    (9, "September"), (10, "October"), (11, "November"), (12, "December"),
+]
+
+DAY_CHOICES = [
+    (0, "Monday"),
+    (1, "Tuesday"),
+    (2, "Wednesday"),
+    (3, "Thursday"),
+    (4, "Friday"),
+    (5, "Saturday"),
+    (6, "Sunday"),
 ]
 
 NOTIFY_TARGET_CHOICES = [
@@ -22,118 +33,151 @@ NOTIFY_TARGET_CHOICES = [
     ("specific", "Specific email"),
 ]
 
-DAY_OF_WEEK_CHOICES = [(i, d) for i, d in enumerate(
-    ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-)]
-
 
 class ETLSchedule(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    etl = models.ForeignKey(
+    etl = models.OneToOneField(
         "etl.ETL",
         on_delete=models.CASCADE,
-        related_name="schedules",
+        related_name="schedule",
     )
-
-    # ── timing ────────────────────────────────────────────────────────────────
-    frequency    = models.CharField(max_length=10, choices=FREQUENCY_CHOICES, default="daily")
-    time_of_day  = models.TimeField(help_text="Local server time to fire")
-
-    # weekly
-    day_of_week  = models.IntegerField(null=True, blank=True, choices=DAY_OF_WEEK_CHOICES)
-
-    # monthly
-    day_of_month = models.IntegerField(null=True, blank=True)
-
-    # yearly  (month 1-12, day 1-28 for safety)
-    month_of_year = models.IntegerField(null=True, blank=True,
-                                        help_text="1=Jan … 12=Dec (yearly only)")
-    day_of_year   = models.IntegerField(null=True, blank=True,
-                                        help_text="Day of month for yearly schedule (1-28)")
 
     is_active = models.BooleanField(default=True)
 
-    # ── notification target ───────────────────────────────────────────────────
-    notify_target        = models.CharField(
-        max_length=20, choices=NOTIFY_TARGET_CHOICES, default="creator"
-    )
-    notify_specific_email = models.EmailField(blank=True, default="")
-    backup_email          = models.EmailField(blank=True, default="")
+    frequency   = models.CharField(max_length=10, choices=FREQ_CHOICES, default="daily")
+    time_of_day = models.TimeField(help_text="Server local time to trigger (HH:MM)")
 
-    # The specific user who should receive the "launch" prompt.
-    # Set automatically from notify_target when the schedule fires.
-    # NULL = ETL creator.
-    launched_for = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+    # weekly only
+    day_of_week = models.IntegerField(null=True, blank=True, choices=DAY_CHOICES)
+
+    # monthly + yearly: 1–31, clamped to month length at runtime
+    # Use 28 to guarantee firing every month including February.
+    day_of_month = models.IntegerField(
         null=True, blank=True,
-        on_delete=models.SET_NULL,
-        related_name="assigned_scheduled_executions",
-        help_text="User who should see and launch the pending execution. "
-                  "NULL means the ETL creator.",
+        help_text="1–31. Days beyond month length clamp to the last day (e.g. 31 → 30 in April).",
     )
 
-    # ── timestamps ────────────────────────────────────────────────────────────
-    last_triggered_at = models.DateTimeField(null=True, blank=True)
+    # yearly only
+    month_of_year = models.IntegerField(
+        null=True, blank=True,
+        choices=MONTH_CHOICES,
+    )
+
+    # ── Notification target (admin-only fields) ──────────────────────────────
+    notify_target = models.CharField(
+        max_length=10,
+        choices=NOTIFY_TARGET_CHOICES,
+        default="creator",
+        help_text="Admin-only: who should receive the launch notification.",
+    )
+    notify_specific_email = models.EmailField(
+        blank=True,
+        help_text="Admin-only: a specific email to notify (overrides creator).",
+    )
+
+    # ── Backup / extra email (available to all users) ────────────────────────
+    backup_email = models.EmailField(
+        blank=True,
+        help_text="An extra address that always receives a CC of the notification.",
+    )
+
     created_at        = models.DateTimeField(auto_now_add=True)
     updated_at        = models.DateTimeField(auto_now=True)
+    last_triggered_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
-        ordering = ["-created_at"]
+        app_label = "scheduling"
+        db_table  = "etl_schedules"
 
     def __str__(self):
-        return f"{self.etl.name} [{self.frequency}]"
+        return f"Schedule({self.etl.name}, {self.frequency})"
 
-    # ── helpers ───────────────────────────────────────────────────────────────
+    # ── Primary recipient ────────────────────────────────────────────────────
+    @property
+    def primary_email(self) -> str:
+        """The main address the launch notification goes to."""
+        if self.notify_target == "specific" and self.notify_specific_email:
+            return self.notify_specific_email
+        return self.etl.created_by.email or ""
 
     @property
     def effective_email(self) -> str:
-        """Primary notification address (single string, for display)."""
-        if self.notify_target == "specific" and self.notify_specific_email:
-            return self.notify_specific_email
-        return self.etl.created_by.email
+        """Backwards-compat alias used in the scheduler."""
+        return self.primary_email
 
+    # ── Group notify ─────────────────────────────────────────────────────────
+    @property
+    def group_emails(self) -> list[str]:
+        """
+        When notify_target == "group", return every active member email
+        across all groups the ETL belongs to. Falls back to creator email
+        if no groups are assigned.
+        """
+        if self.notify_target != "group":
+            return []
+
+        etl = self.etl
+        emails: set[str] = set()
+        for group in etl.allowed_groups.all():
+            member_emails = group.members.filter(
+                is_active=True
+            ).values_list("email", flat=True)
+            emails.update(e for e in member_emails if e)
+
+        if not emails:
+            return [self.primary_email]
+
+        return list(emails)
+
+    # ── All addresses that should receive the notification ───────────────────
     @property
     def all_notify_emails(self) -> list[str]:
-        """All addresses that should receive the schedule email."""
-        addrs: set[str] = set()
+        """Deduplicated list of everyone who should receive the launch email."""
+        addresses: set[str] = set()
 
-        if self.notify_target == "specific" and self.notify_specific_email:
-            addrs.add(self.notify_specific_email)
-        elif self.notify_target == "group":
-            for group in self.etl.allowed_groups.all():
-                for member in group.members.filter(is_active=True):
-                    if member.email:
-                        addrs.add(member.email)
+        if self.notify_target == "group":
+            addresses.update(self.group_emails)
         else:
-            # "creator"
-            if self.etl.created_by.email:
-                addrs.add(self.etl.created_by.email)
+            addr = self.primary_email
+            if addr:
+                addresses.add(addr)
 
         if self.backup_email:
-            addrs.add(self.backup_email)
+            addresses.add(self.backup_email)
 
-        return list(addrs)
+        return list(addresses)
 
+    def _effective_dom(self, now) -> int:
+        """
+        Clamp day_of_month to the actual last day of `now`'s month.
+        dom=28 → fires Feb 28, Mar 28, Apr 28 …
+        dom=31 → fires Jan 31, Feb 28, Mar 31, Apr 30 …
+        """
+        last_day = calendar.monthrange(now.year, now.month)[1]
+        return min(self.day_of_month, last_day)
+
+    # ── Due check ────────────────────────────────────────────────────────────
     def due_today_at(self, now) -> bool:
-        """Return True if this schedule should fire at *now*."""
-        # Time window: same hour + minute
-        if self.time_of_day.hour != now.hour or self.time_of_day.minute != now.minute:
+        if not self.is_active:
             return False
-
+        t = self.time_of_day
+        if not (now.hour == t.hour and now.minute == t.minute):
+            return False
         if self.frequency == "daily":
             return True
-
         if self.frequency == "weekly":
-            # weekday(): Monday=0
-            return now.weekday() == (self.day_of_week or 0)
-
+            return self.day_of_week is not None and now.weekday() == self.day_of_week
         if self.frequency == "monthly":
-            return now.day == (self.day_of_month or 1)
-
+            return (
+                self.day_of_month is not None
+                and now.day == self._effective_dom(now)
+            )
         if self.frequency == "yearly":
             return (
-                now.month == (self.month_of_year or 1)
-                and now.day == (self.day_of_year or 1)
+                self.day_of_month is not None
+                and self.month_of_year is not None
+                and now.month == self.month_of_year
+                and now.day == self._effective_dom(now)
             )
-
         return False

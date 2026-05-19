@@ -13,7 +13,8 @@ type Props = {
   onViewLogs?: (exec: Execution) => void;
   onViewOutputs?: (exec: Execution) => void;
   onViewInputs?: (exec: Execution) => void;
-  onReviewScheduled?: (exec: Execution) => void;   // ← added
+  onReviewScheduled?: (exec: Execution) => void;
+  onDelete?: (exec: Execution) => void;
 };
 
 export function ExecutionCard({
@@ -22,6 +23,7 @@ export function ExecutionCard({
   onViewOutputs,
   onViewInputs,
   onReviewScheduled,
+  onDelete,
 }: Props) {
   const [execution, setExecution] = useState(initialExecution);
   const [showOverrides, setShowOverrides] = useState(false);
@@ -29,6 +31,7 @@ export function ExecutionCard({
   const [showEmailInput, setShowEmailInput] = useState(false);
   const [emailInput, setEmailInput] = useState(execution.notify_email || "");
   const [reportMsg, setReportMsg] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Auto-refresh while running
   useEffect(() => {
@@ -64,6 +67,18 @@ export function ExecutionCard({
     }
   }
 
+  async function handleDelete() {
+    if (!confirm("Delete this execution? This cannot be undone.")) return;
+    try {
+      setDeleting(true);
+      await apiFetch(`/executions/${execution.id}/`, { method: "DELETE" });
+      onDelete?.(execution);
+    } catch (e: any) {
+      console.error("Delete failed:", e.message);
+      setDeleting(false);
+    }
+  }
+
   return (
     <Card style={{ marginBottom: 10 }}>
       <div style={{
@@ -75,7 +90,7 @@ export function ExecutionCard({
             {execution.execution_label || execution.etl_name}
           </div>
           <div style={{ fontSize: 12, color: "#94a3b8", marginTop: 2 }}>
-            {execution.etl_name} · {execution.launched_by_username} ·{" "}
+            {execution.etl_name} · {execution.launched_by_username ?? "scheduler"} ·{" "}
             {new Date(execution.launched_at).toLocaleString()}
             {execution.completed_at &&
               ` → ${new Date(execution.completed_at).toLocaleTimeString()}`}
@@ -157,13 +172,15 @@ export function ExecutionCard({
             </Button>
           )}
 
-          {/* Send report button */}
           {["SUCCESS", "FAILED"].includes(execution.status) && (
-            <Button
-              small variant="ghost"
-              onClick={() => setShowEmailInput(s => !s)}
-            >
+            <Button small variant="ghost" onClick={() => setShowEmailInput(s => !s)}>
               {execution.report_sent ? "Resend report" : "Send report"}
+            </Button>
+          )}
+
+          {onDelete && (
+            <Button small variant="danger" onClick={handleDelete} disabled={deleting}>
+              {deleting ? "…" : "Delete"}
             </Button>
           )}
         </div>
@@ -207,8 +224,9 @@ export function ExecutionCard({
 
       {/* Scheduled execution banner */}
       <ScheduledExecutionBanner
-          execution={execution}
-          onLaunch={(exec) => onReviewScheduled?.(exec)} currentUserId={""}      />
+        execution={execution}
+        onLaunch={(exec) => onReviewScheduled?.(exec)}
+      />
     </Card>
   );
 }

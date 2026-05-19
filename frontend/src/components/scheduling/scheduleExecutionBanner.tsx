@@ -1,61 +1,65 @@
-// ScheduledExecutionBanner.tsx
+/**
+ * ScheduledExecutionBanner.tsx
+ * ─────────────────────────────
+ * A compact banner shown inside ExecutionCard when the execution was
+ * created by the scheduler (i.e. it's PENDING and has a schedule label).
+ * Prompts the user to open the LaunchModal to review config and fire the run.
+ */
+
 import React from "react";
 import { Execution } from "../../types/execution";
 
 type Props = {
   execution: Execution;
-  currentUserId: string;
   onLaunch: (exec: Execution) => void;
 };
 
-export function ScheduledExecutionBanner({ execution, currentUserId, onLaunch }: Props) {
+export function ScheduledExecutionBanner({ execution, onLaunch }: Props) {
   if (execution.status !== "PENDING") return null;
 
-  const isScheduled = execution.execution_label?.toLowerCase().includes("scheduled") ?? false;
-  if (!isScheduled) return null;
+  const isScheduledBySystem = !execution.launched_by_username
+    || execution.execution_label?.includes("scheduled");
+  const isManualTrigger = execution.execution_label?.includes("manual trigger");
 
-  // launched_by may be object or id
-  const launchedById =
-    typeof execution.launched_by === "object"
-      ? String((execution.launched_by as any)?.id ?? "")
-      : String(execution.launched_by ?? "");
+  // Show for both scheduler-created and fire_now-created executions
+  if (!isScheduledBySystem && !isManualTrigger) return null;
 
-  const isOwner = launchedById === String(currentUserId);
+  const title = isScheduledBySystem
+    ? "Scheduled run — review before launching"
+    : "Manually triggered run — review before launching";
+  const subtitle = isScheduledBySystem
+    ? "Input files may have changed since the last run."
+    : "Created on demand. Review config before launching.";
 
-  // Show the banner to the owner OR to anyone (the banner text differs)
-  // The launch button only shows to the owner
   return (
     <div style={{
       marginTop: 8, padding: "9px 12px",
       borderRadius: 8,
-      background: isOwner ? "#eff6ff" : "#f8fafc",
-      border: `1px solid ${isOwner ? "#93c5fd" : "#e2e8f0"}`,
+      background: "#eff6ff",
+      border: "1px solid #93c5fd",
       display: "flex", alignItems: "center", gap: 10,
     }}>
       <span style={{ fontSize: 16 }}>⏰</span>
       <div style={{ flex: 1 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: isOwner ? "#1e40af" : "#475569" }}>
-          {isOwner ? "Scheduled run — review before launching" : "Scheduled run pending"}
-        </div>
-        <div style={{ fontSize: 11, color: isOwner ? "#3b82f6" : "#94a3b8", marginTop: 1 }}>
-          {isOwner
-            ? "Input files may have changed. Open the launch wizard to update config."
-            : "Waiting for the assigned user to review and launch."}
+
+          <div style={{ fontSize: 12, fontWeight: 600, color: "#1e40af" }}>{title}</div>
+      <div style={{ fontSize: 11, color: "#3b82f6", marginTop: 1 }}>{subtitle}</div>
+
+        <div style={{ fontSize: 11, color: "#3b82f6", marginTop: 1 }}>
+          Input files may have changed since the last run. Open the launch wizard to update config.
         </div>
       </div>
-      {isOwner && (
-        <button
-          onClick={() => onLaunch(execution)}
-          style={{
-            padding: "6px 14px", borderRadius: 8,
-            background: "#2563eb", color: "#fff",
-            border: "none", cursor: "pointer",
-            fontSize: 12, fontWeight: 600, flexShrink: 0,
-          }}
-        >
-          Review &amp; Launch →
-        </button>
-      )}
+      <button
+        onClick={() => onLaunch(execution)}
+        style={{
+          padding: "6px 14px", borderRadius: 8,
+          background: "#2563eb", color: "#fff",
+          border: "none", cursor: "pointer",
+          fontSize: 12, fontWeight: 600, flexShrink: 0,
+        }}
+      >
+        Review &amp; Launch →
+      </button>
     </div>
   );
 }

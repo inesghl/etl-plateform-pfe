@@ -5,6 +5,7 @@ execution/views.py
 import os
 from pathlib import Path
 
+from django.db.models import Q
 from django.http import FileResponse, Http404
 from django.conf import settings
 from django.utils import timezone as tz
@@ -35,8 +36,18 @@ class ExecutionViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if hasattr(user, "is_admin") and user.is_admin:
             return Execution.objects.select_related("etl", "launched_by").all()
-        return Execution.objects.select_related("etl", "launched_by").filter(launched_by=user)
 
+        return (
+            Execution.objects
+            .select_related("etl", "launched_by")
+            .filter(
+                Q(launched_by=user) |
+                Q(launched_by__isnull=True, etl__allowed_groups__members=user) |
+                Q(launched_by__isnull=True, etl__created_by=user)
+            )
+            .distinct()
+            .order_by("-launched_at")
+        )
     def perform_create(self, serializer):
         etl: ETL = serializer.validated_data["etl"]
         if not etl.is_active or not etl.is_validated:
@@ -177,7 +188,6 @@ class ExecutionViewSet(viewsets.ModelViewSet):
         return Response(result)
 
     # ── launch ────────────────────────────────────────────────────────
-
     @action(detail=True, methods=["post"])
     def launch(self, request, pk=None):
         execution: Execution = self.get_object()
@@ -201,11 +211,47 @@ class ExecutionViewSet(viewsets.ModelViewSet):
         if "notify_email" in request.data:
             execution.notify_email = request.data["notify_email"]
 
-        execution.save(update_fields=["execution_config", "config_overrides", "output_delivery", "notify_email"])
+        # If this was a system-scheduled execution, assign the launcher now
+        if execution.launched_by is None:
+            execution.launched_by = request.user
+
+        execution.save(update_fields=[
+            "execution_config", "config_overrides",
+            "output_delivery", "notify_email", "launched_by"
+        ])
         run_execution(execution)
+        # execution/views.py — in the launch() action, after run_execution():
+
+        if execution.launched_by is not None:
+            _notify_group_of_launch(execution)
+
+        def _notify_group_of_launch(execution):
+            """Tell group members that someone launched this shared execution."""
+            try:
+                from ..notification.models import Notification
+                etl = execution.etl
+                launcher = execution.launched_by
+                notified_ids = {launcher.id}
+
+                for group in etl.allowed_groups.all():
+                    for member in group.members.filter(is_active=True).exclude(id__in=notified_ids):
+                        Notification.objects.create(
+                            user=member,
+                            title=f"▶ Launched by {launcher.username}: {etl.name}",
+                            message=(
+                                f"{launcher.username} has launched the scheduled run "
+                                f"\"{execution.execution_label}\" for \"{etl.name}\". "
+                                f"You don't need to take action."
+                            ),
+                            notification_type="info",
+                            execution=execution,
+                        )
+                        notified_ids.add(member.id)
+            except Exception as e:
+                import logging
+                logging.getLogger("execution").warning("Group launch notify failed: %s", e)
         execution.refresh_from_db()
         return Response(ExecutionSerializer(execution).data)
-
     # ── send_report ───────────────────────────────────────────────────
 
     @action(detail=True, methods=["post"])

@@ -1,4 +1,10 @@
-
+"""
+scheduling/apps.py
+───────────────────
+Starts a background thread that polls for due schedules every 60 seconds.
+The thread is a daemon so it dies automatically when the Django dev-server
+process exits — no cleanup needed for a local/test setup.
+"""
 
 import threading
 import time
@@ -11,11 +17,11 @@ logger = logging.getLogger("scheduling")
 
 
 class SchedulingConfig(AppConfig):
-    name         = "apps.scheduling"
+    name = "apps.scheduling"
     default_auto_field = "django.db.models.BigAutoField"
-    label = 'scheduling'
+
     def ready(self):
-        # Django calls ready() twice in dev
+        # Django calls ready() twice in dev (autoreloader forks).
         # The RUN_MAIN env var is only set in the child (real) process.
         if os.environ.get("RUN_MAIN") != "true":
             # We're in the autoreloader parent — skip.
