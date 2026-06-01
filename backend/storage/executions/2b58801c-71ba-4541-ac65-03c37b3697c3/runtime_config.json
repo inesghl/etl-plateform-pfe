@@ -1,0 +1,12 @@
+{
+  "execution_id": "2b58801c-71ba-4541-ac65-03c37b3697c3",
+  "etl_id": "00e9560a-b538-4595-8a6c-1466227c6385",
+  "work_directory": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\2b58801c-71ba-4541-ac65-03c37b3697c3",
+  "outputs": {
+    "directory": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\2b58801c-71ba-4541-ac65-03c37b3697c3\\outputs",
+    "deleted": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\2b58801c-71ba-4541-ac65-03c37b3697c3\\deleted",
+    "archive": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\2b58801c-71ba-4541-ac65-03c37b3697c3\\archive"
+  },
+  "config": {},
+  "config_overrides": {}
+}

@@ -45,9 +45,7 @@ export function ScheduledExecutionBanner({ execution, onLaunch }: Props) {
           <div style={{ fontSize: 12, fontWeight: 600, color: "#1e40af" }}>{title}</div>
       <div style={{ fontSize: 11, color: "#3b82f6", marginTop: 1 }}>{subtitle}</div>
 
-        <div style={{ fontSize: 11, color: "#3b82f6", marginTop: 1 }}>
-          Input files may have changed since the last run. Open the launch wizard to update config.
-        </div>
+      
       </div>
       <button
         onClick={() => onLaunch(execution)}

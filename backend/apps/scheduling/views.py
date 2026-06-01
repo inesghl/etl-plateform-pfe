@@ -8,7 +8,7 @@ from .serializers import ETLScheduleSerializer
 
 
 def _notify_admins_of_action(user, action_label: str, etl_name: str, schedule_id=None):
-    """Create an in-app notification for every admin whenever a user touches a schedule."""
+    """Create an in-app notification for every admin whenever someone touches a schedule."""
     try:
         from django.contrib.auth import get_user_model
         from ..notification.models import Notification
@@ -47,9 +47,9 @@ class ETLScheduleViewSet(viewsets.ModelViewSet):
         if getattr(user, "is_admin", False):
             return base_qs.all().order_by("-created_at")
 
-        # Regular users: schedules for ETLs they created OR are in the allowed group for
+        # Regular users: can SEE schedules for ETLs assigned to their groups
+        # (read-only — enforced in create/update/destroy/toggle below)
         return base_qs.filter(
-            Q(etl__created_by=user) |
             Q(etl__allowed_groups__members=user)
         ).distinct().order_by("-created_at")
 
@@ -58,19 +58,31 @@ class ETLScheduleViewSet(viewsets.ModelViewSet):
         ctx["request"] = self.request
         return ctx
 
+    # ── CREATE — admin only ───────────────────────────────────────────────────
     def perform_create(self, serializer):
+        if not getattr(self.request.user, "is_admin", False):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only administrators can create schedules.")
         schedule = serializer.save()
         _notify_admins_of_action(
             self.request.user, "Created", schedule.etl.name, schedule.id
         )
 
+    # ── UPDATE — admin only ───────────────────────────────────────────────────
     def perform_update(self, serializer):
+        if not getattr(self.request.user, "is_admin", False):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only administrators can edit schedules.")
         schedule = serializer.save()
         _notify_admins_of_action(
             self.request.user, "Updated", schedule.etl.name, schedule.id
         )
 
+    # ── DELETE — admin only ───────────────────────────────────────────────────
     def perform_destroy(self, instance):
+        if not getattr(self.request.user, "is_admin", False):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Only administrators can delete schedules.")
         etl_name    = instance.etl.name
         schedule_id = instance.id
         instance.delete()
@@ -78,36 +90,34 @@ class ETLScheduleViewSet(viewsets.ModelViewSet):
             self.request.user, "Deleted", etl_name, schedule_id
         )
 
-    # ── Toggle active/inactive — ALL users (for their own ETLs) ──────────────
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
+    # ── TOGGLE (pause/resume) — admin only ────────────────────────────────────
+    @action(detail=True, methods=["post"])
     def toggle(self, request, pk=None):
-        """
-        Pause or resume a schedule. Available to all users for ETLs they own.
-        Admins can toggle any schedule. Scoped by get_queryset.
-        """
+        if not getattr(request.user, "is_admin", False):
+            return Response(
+                {"detail": "Only administrators can pause or resume schedules."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         schedule: ETLSchedule = self.get_object()
-
         schedule.is_active = not schedule.is_active
         schedule.save(update_fields=["is_active"])
 
         state = "Activated" if schedule.is_active else "Deactivated"
         _notify_admins_of_action(request.user, state, schedule.etl.name, schedule.id)
-        _notify_user_of_toggle(request.user, schedule, state)
 
         return Response(
             ETLScheduleSerializer(schedule, context={"request": request}).data
         )
 
-    # ── Fire Now — ALL users (for their own ETLs) ────────────────────────────
-    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated])
+    # ── FIRE NOW — all users ──────────────────────────────────────────────────
+    @action(detail=True, methods=["post"])
     def fire_now(self, request, pk=None):
         """
-        Immediately create a PENDING execution for this schedule and send
-        the standard schedule notifications (email + in-app).
-        Available to all users for ETLs they own. Admins can trigger any schedule.
-        Scoped by get_queryset so users can never trigger another user's schedule.
+        Any user who can see the schedule (i.e. belongs to an assigned group)
+        can trigger an immediate personal PENDING execution.
+        This does NOT modify the schedule itself.
         """
-        schedule: ETLSchedule = self.get_object()
+        schedule: ETLSchedule = self.get_object()  # queryset already scopes access
 
         from django.utils import timezone
         from ..execution.models import Execution
@@ -118,7 +128,7 @@ class ETLScheduleViewSet(viewsets.ModelViewSet):
 
         execution = Execution.objects.create(
             etl=etl,
-            launched_by=request.user,
+            launched_by=request.user,       # scoped to THIS user
             status="PENDING",
             execution_config=dict(etl.config),
             execution_label=(
@@ -128,34 +138,10 @@ class ETLScheduleViewSet(viewsets.ModelViewSet):
 
         _send_schedule_notifications(schedule, execution, now)
 
-        schedule.last_triggered_at = now
-        schedule.save(update_fields=["last_triggered_at"])
-
-        _notify_admins_of_action(
-            request.user, "Manually triggered", etl.name, schedule.id
-        )
+        # Do NOT update last_triggered_at — that belongs to the automatic scheduler
+        # Updating it here would confuse the double-fire guard
 
         return Response(
             {"detail": "Execution created.", "execution_id": str(execution.id)},
             status=status.HTTP_201_CREATED,
         )
-
-
-def _notify_user_of_toggle(user, schedule: ETLSchedule, state: str):
-    """Send the user a confirmation notification when they pause/resume their schedule."""
-    try:
-        from ..notification.models import Notification
-
-        etl = schedule.etl
-        Notification.objects.create(
-            user=user,
-            title=f"{'⏸' if state == 'Deactivated' else '▶'} Schedule {state}: {etl.name}",
-            message=(
-                f"Your schedule for \"{etl.name}\" has been {state.lower()}. "
-                f"Frequency: {schedule.frequency} at {schedule.time_of_day.strftime('%H:%M')}."
-            ),
-            notification_type="info",
-        )
-    except Exception as exc:
-        import logging
-        logging.getLogger("scheduling").warning("User toggle notify failed: %s", exc)

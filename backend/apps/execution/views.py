@@ -28,6 +28,33 @@ from ..common.path_utils import (
 )
 
 
+def _notify_group_of_launch(execution):
+    """Tell group members that someone launched this shared execution."""
+    try:
+        from ..notification.models import Notification
+        etl = execution.etl
+        launcher = execution.launched_by
+        notified_ids = {launcher.id}
+
+        for group in etl.allowed_groups.all():
+            for member in group.members.filter(is_active=True).exclude(id__in=notified_ids):
+                Notification.objects.create(
+                    user=member,
+                    title=f"▶ Launched by {launcher.username}: {etl.name}",
+                    message=(
+                        f"{launcher.username} has launched the scheduled run "
+                        f"\"{execution.execution_label}\" for \"{etl.name}\". "
+                        f"You don't need to take action."
+                    ),
+                    notification_type="info",
+                    execution=execution,
+                )
+                notified_ids.add(member.id)
+    except Exception as e:
+        import logging
+        logging.getLogger("execution").warning("Group launch notify failed: %s", e)
+
+
 class ExecutionViewSet(viewsets.ModelViewSet):
     serializer_class = ExecutionSerializer
     permission_classes = [IsAuthenticated]
@@ -48,6 +75,7 @@ class ExecutionViewSet(viewsets.ModelViewSet):
             .distinct()
             .order_by("-launched_at")
         )
+
     def perform_create(self, serializer):
         etl: ETL = serializer.validated_data["etl"]
         if not etl.is_active or not etl.is_validated:
@@ -80,20 +108,20 @@ class ExecutionViewSet(viewsets.ModelViewSet):
         merged_classifications = {**etl.path_classifications, **execution.path_classifications}
 
         return Response({
-            "execution_id":        str(execution.id),
-            "status":              execution.status,
-            "etl_name":            etl.name,
-            "entry_point":         etl.entry_point,
-            "python_version":      etl.python_version,
-            "config_file_path":    etl.config_file_path,
-            "etl_config":          etl.config,
-            "execution_config":    effective_config,
-            "config_overrides":    execution.config_overrides,
-            "output_delivery":     execution.output_delivery,
-            "notify_email":        execution.notify_email,
-            "path_like_keys":      path_like,
+            "execution_id":         str(execution.id),
+            "status":               execution.status,
+            "etl_name":             etl.name,
+            "entry_point":          etl.entry_point,
+            "python_version":       etl.python_version,
+            "config_file_path":     etl.config_file_path,
+            "etl_config":           etl.config,
+            "execution_config":     effective_config,
+            "config_overrides":     execution.config_overrides,
+            "output_delivery":      execution.output_delivery,
+            "notify_email":         execution.notify_email,
+            "path_like_keys":       path_like,
             "path_classifications": merged_classifications,
-            "config_diff":         _compute_config_diff(etl.config, effective_config),
+            "config_diff":          _compute_config_diff(etl.config, effective_config),
         })
 
     # ── update_config ─────────────────────────────────────────────────
@@ -129,9 +157,9 @@ class ExecutionViewSet(viewsets.ModelViewSet):
         execution.save(update_fields=["execution_config", "config_overrides", "output_delivery", "notify_email", "status"])
 
         data = ExecutionSerializer(execution).data
-        data["path_like_keys"]      = get_path_like_keys(merged)
+        data["path_like_keys"]       = get_path_like_keys(merged)
         data["path_classifications"] = {**execution.etl.path_classifications, **execution.path_classifications}
-        data["config_diff"]         = _compute_config_diff(execution.etl.config, merged)
+        data["config_diff"]          = _compute_config_diff(execution.etl.config, merged)
         return Response(data)
 
     # ── save_path_classifications ─────────────────────────────────────
@@ -168,8 +196,6 @@ class ExecutionViewSet(viewsets.ModelViewSet):
 
         result = _run_path_checks(execution)
 
-        # Advance to VALIDATED only when all inputs are accessible
-        # (warnings on placeholder files do NOT block)
         if result["inputs_accessible"] and execution.status == "PENDING":
             execution.status = "VALIDATED"
             execution.save(update_fields=["status"])
@@ -188,6 +214,7 @@ class ExecutionViewSet(viewsets.ModelViewSet):
         return Response(result)
 
     # ── launch ────────────────────────────────────────────────────────
+
     @action(detail=True, methods=["post"])
     def launch(self, request, pk=None):
         execution: Execution = self.get_object()
@@ -211,47 +238,22 @@ class ExecutionViewSet(viewsets.ModelViewSet):
         if "notify_email" in request.data:
             execution.notify_email = request.data["notify_email"]
 
-        # If this was a system-scheduled execution, assign the launcher now
         if execution.launched_by is None:
             execution.launched_by = request.user
 
         execution.save(update_fields=[
             "execution_config", "config_overrides",
-            "output_delivery", "notify_email", "launched_by"
+            "output_delivery", "notify_email", "launched_by",
         ])
+
         run_execution(execution)
-        # execution/views.py — in the launch() action, after run_execution():
 
         if execution.launched_by is not None:
             _notify_group_of_launch(execution)
 
-        def _notify_group_of_launch(execution):
-            """Tell group members that someone launched this shared execution."""
-            try:
-                from ..notification.models import Notification
-                etl = execution.etl
-                launcher = execution.launched_by
-                notified_ids = {launcher.id}
-
-                for group in etl.allowed_groups.all():
-                    for member in group.members.filter(is_active=True).exclude(id__in=notified_ids):
-                        Notification.objects.create(
-                            user=member,
-                            title=f"▶ Launched by {launcher.username}: {etl.name}",
-                            message=(
-                                f"{launcher.username} has launched the scheduled run "
-                                f"\"{execution.execution_label}\" for \"{etl.name}\". "
-                                f"You don't need to take action."
-                            ),
-                            notification_type="info",
-                            execution=execution,
-                        )
-                        notified_ids.add(member.id)
-            except Exception as e:
-                import logging
-                logging.getLogger("execution").warning("Group launch notify failed: %s", e)
         execution.refresh_from_db()
         return Response(ExecutionSerializer(execution).data)
+
     # ── send_report ───────────────────────────────────────────────────
 
     @action(detail=True, methods=["post"])
@@ -289,8 +291,8 @@ class ExecutionViewSet(viewsets.ModelViewSet):
         if not file_path.exists():
             raise Http404(f"Output file '{filename}' no longer exists on disk.")
 
-        output.download_count      += 1
-        output.last_downloaded_at   = tz.now()
+        output.download_count     += 1
+        output.last_downloaded_at  = tz.now()
         output.save(update_fields=["download_count", "last_downloaded_at"])
         return FileResponse(open(file_path, "rb"), as_attachment=True, filename=filename)
 
@@ -334,8 +336,6 @@ def _run_path_checks(execution: Execution) -> dict:
         else:
             others.append(entry)
 
-    # inputs_accessible = True when ALL input FOLDERS are reachable.
-    # Placeholder file warnings do NOT block launch.
     inputs_missing = [e["config_key"] for e in inputs if not e["accessible"]]
 
     return {

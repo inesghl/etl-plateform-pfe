@@ -1,13 +1,16 @@
 /**
  * ScheduleEditor.tsx
  *
- * All users can:
- *   - Create / edit / delete their own schedule
+ * Admins can:
+ *   - Create / Edit / Delete a schedule
  *   - Pause / Resume   (⏸ / ▶)
- *   - Fire Now         (⚡ Now)  — creates a PENDING execution immediately
+ *   - Fire Now         (⚡ Now)
  *
- * Admins additionally see the "Notify" target selector (creator / group / specific).
- * Regular users always notify themselves (creator) and can optionally add a backup CC email.
+ * Regular users can ONLY:
+ *   - View the schedule (read-only summary)
+ *   - Fire Now         (⚡ Now) — creates a PENDING execution for themselves only
+ *
+ * Nothing a user does touches the schedule record itself.
  */
 import React, { useEffect, useState } from "react";
 import {
@@ -32,7 +35,6 @@ const MONTHS = [
   "July", "August", "September", "October", "November", "December",
 ];
 
-// ── Tiny style helpers ────────────────────────────────────────────────────────
 const S = {
   wrap: {
     marginTop: 12,
@@ -91,9 +93,9 @@ const S = {
       fontSize: 12,
       background:
         v === "primary" ? "#2563eb"
-        : v === "danger" ? "#dc2626"
-        : v === "green"  ? "#16a34a"
-        : v === "orange" ? "#d97706"
+        : v === "danger"  ? "#dc2626"
+        : v === "green"   ? "#16a34a"
+        : v === "orange"  ? "#d97706"
         : "#f1f5f9",
       color: v === "ghost" ? "#64748b" : "#fff",
     } as React.CSSProperties),
@@ -114,7 +116,6 @@ const S = {
     } as React.CSSProperties),
 };
 
-// ── Frequency summary label ───────────────────────────────────────────────────
 function freqLabel(s: ETLSchedule): string {
   if (s.frequency === "weekly")  return `Weekly (${DAYS[s.day_of_week ?? 0]})`;
   if (s.frequency === "monthly") return `Monthly (day ${s.day_of_month})`;
@@ -123,7 +124,6 @@ function freqLabel(s: ETLSchedule): string {
   return "Daily";
 }
 
-// ── Component ─────────────────────────────────────────────────────────────────
 export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
   const [schedule, setSchedule] = useState<ETLSchedule | null>(null);
   const [loading,  setLoading]  = useState(true);
@@ -133,7 +133,7 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
   const [toggling, setToggling] = useState(false);
   const [error,    setError]    = useState("");
 
-  // Form state
+  // Form state (admin edit form only)
   const [freq,          setFreq]          = useState<ETLSchedule["frequency"]>("daily");
   const [time,          setTime]          = useState("08:00");
   const [dow,           setDow]           = useState(0);
@@ -143,7 +143,6 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
   const [notifyTarget,  setNotifyTarget]  = useState<"creator" | "group" | "specific">("creator");
   const [specificEmail, setSpecificEmail] = useState("");
 
-  // ── Load ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     fetchScheduleForEtl(etlId)
       .then(s => { setSchedule(s); if (s) populate(s); })
@@ -163,7 +162,6 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
     setSpecificEmail(s.notify_specific_email ?? "");
   }
 
-  // ── Save ──────────────────────────────────────────────────────────────────
   async function handleSave() {
     setSaving(true);
     setError("");
@@ -172,16 +170,12 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
         etl:           etlId,
         frequency:     freq,
         time_of_day:   time,
-        day_of_week:   freq === "weekly"                    ? dow  : null,
-        day_of_month:  ["monthly", "yearly"].includes(freq) ? dom  : null,
-        month_of_year: freq === "yearly"                    ? moy  : null,
+        day_of_week:   freq === "weekly"                    ? dow : null,
+        day_of_month:  ["monthly", "yearly"].includes(freq) ? dom : null,
+        month_of_year: freq === "yearly"                    ? moy : null,
         backup_email:  backupEmail || undefined,
-        // Admin-only fields: strip them for regular users so the backend
-        // also ignores them (double safety).
-        ...(isAdmin && {
-          notify_target:          notifyTarget,
-          notify_specific_email:  notifyTarget === "specific" ? specificEmail : "",
-        }),
+        notify_target:         notifyTarget,
+        notify_specific_email: notifyTarget === "specific" ? specificEmail : "",
       };
       const saved = schedule
         ? await updateSchedule(schedule.id, payload)
@@ -195,7 +189,6 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
     }
   }
 
-  // ── Delete ────────────────────────────────────────────────────────────────
   async function handleDelete() {
     if (!schedule || !confirm(`Delete schedule for "${etlName}"?`)) return;
     await deleteSchedule(schedule.id);
@@ -203,7 +196,6 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
     setEditing(false);
   }
 
-  // ── Pause / Resume ────────────────────────────────────────────────────────
   async function handleToggle() {
     if (!schedule || toggling) return;
     setToggling(true);
@@ -214,7 +206,6 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
     }
   }
 
-  // ── Fire Now ──────────────────────────────────────────────────────────────
   async function handleFireNow() {
     if (!schedule || firing) return;
     setFiring(true);
@@ -230,13 +221,20 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
     }
   }
 
-  // ── Loading ───────────────────────────────────────────────────────────────
   if (loading) {
     return <div style={{ ...S.wrap, color: "#94a3b8" }}>Loading schedule…</div>;
   }
 
   // ── No schedule yet ───────────────────────────────────────────────────────
   if (!schedule && !editing) {
+    // Regular users just see a message — they can't create schedules
+    if (!isAdmin) {
+      return (
+        <div style={{ ...S.wrap, color: "#94a3b8" }}>
+          No schedule configured for this ETL.
+        </div>
+      );
+    }
     return (
       <div style={S.wrap}>
         <div style={{ ...S.row, justifyContent: "space-between" }}>
@@ -249,11 +247,10 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
     );
   }
 
-  // ── Summary view ──────────────────────────────────────────────────────────
+  // ── Summary view (shown to everyone, actions differ by role) ─────────────
   if (schedule && !editing) {
     return (
       <div style={S.wrap}>
-        {/* Top row: status + action buttons */}
         <div style={{ ...S.row, justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
           <div>
             <span style={S.badge(schedule.is_active)}>
@@ -265,50 +262,55 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
           </div>
 
           <div style={S.row}>
-            {/* ⏸ Pause / ▶ Resume */}
-            <button
-              style={S.btn("orange")}
-              onClick={handleToggle}
-              disabled={toggling}
-              title={schedule.is_active ? "Pause this schedule" : "Resume this schedule"}
-            >
-              {toggling ? "…" : schedule.is_active ? "⏸ Pause" : "▶ Resume"}
-            </button>
+            {/* Pause / Resume — admin only */}
+            {isAdmin && (
+              <button
+                style={S.btn("orange")}
+                onClick={handleToggle}
+                disabled={toggling}
+                title={schedule.is_active ? "Pause this schedule" : "Resume this schedule"}
+              >
+                {toggling ? "…" : schedule.is_active ? "⏸ Pause" : "▶ Resume"}
+              </button>
+            )}
 
-            {/* ⚡ Now — create a PENDING execution immediately */}
+            {/* Fire Now — all users */}
             <button
               style={S.btn("green")}
               onClick={handleFireNow}
               disabled={firing}
-              title="Create a PENDING execution right now — you'll review and launch it in the Executions tab"
+              title="Create a pending execution right now — review and launch it in the Executions tab"
             >
               {firing ? "…" : "⚡ Now"}
             </button>
 
-            {/* Edit */}
-            <button
-              style={S.btn("ghost")}
-              onClick={() => { populate(schedule); setEditing(true); }}
-            >
-              Edit
-            </button>
+            {/* Edit — admin only */}
+            {isAdmin && (
+              <button
+                style={S.btn("ghost")}
+                onClick={() => { populate(schedule); setEditing(true); }}
+              >
+                Edit
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Notification info */}
-        <div style={{ marginTop: 8, fontSize: 12, color: "#64748b" }}>
-          📧{" "}
-          {schedule.notify_target === "group"
-            ? "Notifying entire group"
-            : schedule.notify_target === "specific" && schedule.notify_specific_email
-              ? `Notifying: ${schedule.notify_specific_email}`
-              : `Notifying: ${schedule.effective_email}`}
-          {schedule.backup_email && (
-            <span style={{ color: "#94a3b8" }}> + CC: {schedule.backup_email}</span>
-          )}
-        </div>
+        {/* Notification info — admin only (users don't need to see this) */}
+        {isAdmin && (
+          <div style={{ marginTop: 8, fontSize: 12, color: "#64748b" }}>
+            📧{" "}
+            {schedule.notify_target === "group"
+              ? "Notifying entire group"
+              : schedule.notify_target === "specific" && schedule.notify_specific_email
+                ? `Notifying: ${schedule.notify_specific_email}`
+                : `Notifying: ${schedule.effective_email}`}
+            {schedule.backup_email && (
+              <span style={{ color: "#94a3b8" }}> + CC: {schedule.backup_email}</span>
+            )}
+          </div>
+        )}
 
-        {/* Last triggered */}
         {schedule.last_triggered_at && (
           <div style={{ marginTop: 4, fontSize: 11, color: "#94a3b8" }}>
             Last triggered: {new Date(schedule.last_triggered_at).toLocaleString()}
@@ -318,14 +320,14 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
     );
   }
 
-  // ── Edit / Create form ────────────────────────────────────────────────────
+  // ── Edit / Create form — admin only ──────────────────────────────────────
+  // (Regular users never reach this branch because the Edit button is hidden)
   return (
     <div style={S.wrap}>
       <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: 14 }}>
         {schedule ? "Edit Schedule" : "New Schedule"} — {etlName}
       </div>
 
-      {/* Frequency + Time */}
       <div style={S.twoCol}>
         <div style={S.section}>
           <div style={S.label}>Frequency</div>
@@ -351,7 +353,6 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
         </div>
       </div>
 
-      {/* Weekly: day of week */}
       {freq === "weekly" && (
         <div style={S.section}>
           <div style={S.label}>Day of week</div>
@@ -365,14 +366,11 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
         </div>
       )}
 
-      {/* Monthly: day of month */}
       {freq === "monthly" && (
         <div style={S.section}>
           <div style={S.label}>Day of month (1–31)</div>
           <input
-            type="number"
-            min={1}
-            max={31}
+            type="number" min={1} max={31}
             style={S.input}
             value={dom}
             onChange={e => setDom(Math.min(31, Math.max(1, Number(e.target.value))))}
@@ -381,13 +379,12 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
             {dom === 28
               ? "✓ Safe for all months including February."
               : dom > 28
-                ? "Days 29–31 clamp to last day of shorter months (e.g. Feb → 28)."
+                ? "Days 29–31 clamp to last day of shorter months."
                 : `Fires on day ${dom} of every month.`}
           </div>
         </div>
       )}
 
-      {/* Yearly: month + day */}
       {freq === "yearly" && (
         <div style={S.twoCol}>
           <div style={S.section}>
@@ -403,9 +400,7 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
           <div style={S.section}>
             <div style={S.label}>Day</div>
             <input
-              type="number"
-              min={1}
-              max={31}
+              type="number" min={1} max={31}
               style={S.input}
               value={dom}
               onChange={e => setDom(Math.min(31, Math.max(1, Number(e.target.value))))}
@@ -421,37 +416,33 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
 
       <hr style={S.divider} />
 
-      {/* Notify target — admin only */}
-      {isAdmin && (
-        <>
-          <div style={S.section}>
-            <div style={S.label}>Notify</div>
-            <select
-              style={S.select}
-              value={notifyTarget}
-              onChange={e => setNotifyTarget(e.target.value as any)}
-            >
-              <option value="creator">ETL creator only</option>
-              <option value="group">Entire group</option>
-              <option value="specific">Specific email</option>
-            </select>
-          </div>
-          {notifyTarget === "specific" && (
-            <div style={S.section}>
-              <div style={S.label}>Specific email</div>
-              <input
-                type="email"
-                style={S.input}
-                placeholder="user@example.com"
-                value={specificEmail}
-                onChange={e => setSpecificEmail(e.target.value)}
-              />
-            </div>
-          )}
-        </>
+      {/* Notify target — admin only (always shown here since only admins reach this form) */}
+      <div style={S.section}>
+        <div style={S.label}>Notify</div>
+        <select
+          style={S.select}
+          value={notifyTarget}
+          onChange={e => setNotifyTarget(e.target.value as any)}
+        >
+          <option value="creator">ETL creator only</option>
+          <option value="group">Entire group</option>
+          <option value="specific">Specific email</option>
+        </select>
+      </div>
+
+      {notifyTarget === "specific" && (
+        <div style={S.section}>
+          <div style={S.label}>Specific email</div>
+          <input
+            type="email"
+            style={S.input}
+            placeholder="user@example.com"
+            value={specificEmail}
+            onChange={e => setSpecificEmail(e.target.value)}
+          />
+        </div>
       )}
 
-      {/* Backup / CC email — all users */}
       <div style={S.section}>
         <div style={S.label}>Backup / CC email (optional)</div>
         <input
@@ -464,21 +455,15 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
         <div style={S.hint}>Always receives a copy of the notification email.</div>
       </div>
 
-      {/* Error */}
       {error && (
         <div style={{
-          marginBottom: 12,
-          padding: "8px 12px",
-          borderRadius: 7,
-          background: "#fef2f2",
-          color: "#dc2626",
-          fontSize: 12,
+          marginBottom: 12, padding: "8px 12px", borderRadius: 7,
+          background: "#fef2f2", color: "#dc2626", fontSize: 12,
         }}>
           {error}
         </div>
       )}
 
-      {/* Footer buttons */}
       <div style={{ ...S.row, justifyContent: "space-between" }}>
         <div>
           {schedule && (
@@ -488,18 +473,10 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
           )}
         </div>
         <div style={S.row}>
-          <button
-            style={S.btn("ghost")}
-            disabled={saving}
-            onClick={() => setEditing(false)}
-          >
+          <button style={S.btn("ghost")} disabled={saving} onClick={() => setEditing(false)}>
             Cancel
           </button>
-          <button
-            style={S.btn("primary")}
-            onClick={handleSave}
-            disabled={saving}
-          >
+          <button style={S.btn("primary")} onClick={handleSave} disabled={saving}>
             {saving ? "Saving…" : "Save Schedule"}
           </button>
         </div>

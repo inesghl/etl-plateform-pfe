@@ -1,0 +1,17 @@
+{
+  "execution_id": "6c69fa12-ebfe-4373-8ac4-c3c35a0c00fd",
+  "etl_id": "e0665a75-1802-466f-baff-c5ac63ad4dbe",
+  "work_directory": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\6c69fa12-ebfe-4373-8ac4-c3c35a0c00fd",
+  "outputs": {
+    "directory": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\6c69fa12-ebfe-4373-8ac4-c3c35a0c00fd\\outputs",
+    "deleted": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\6c69fa12-ebfe-4373-8ac4-c3c35a0c00fd\\deleted",
+    "archive": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\6c69fa12-ebfe-4373-8ac4-c3c35a0c00fd\\archive"
+  },
+  "config": {
+    "logs_dir": "logs",
+    "input_excel": "data/input.xlsx",
+    "deleted_rows": "deleted/deleted_rows.xlsx",
+    "output_excel": "outputs/final_outputs.xlsx"
+  },
+  "config_overrides": {}
+}

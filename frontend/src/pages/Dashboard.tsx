@@ -1,15 +1,9 @@
-// src/pages/Dashboard.tsx  — add the stats tab (diff from your current file)
-// Only the changed parts are shown with ← ADDED comments.
-// Copy the full file or apply the diff below.
-
 import React, { useEffect, useState } from "react";
 import { User } from "../types/user";
 import { Etl } from "../types/etl";
 import { Execution } from "../types/execution";
 import { UserGroup } from "../types/group";
 import { Header } from "../components/Header";
-import { PageLayout } from "../components/PageLayout";
-import { Tabs } from "../components/common/Tabs";
 import { Button } from "../components/common/Button";
 import { UploadEtlForm } from "../components/etl/UploadEtlForm";
 import { EtlList } from "../components/etl/EtlList";
@@ -22,7 +16,7 @@ import { Card } from "../components/common/Card";
 import { GroupManager } from "../components/groups/GroupManager";
 import { ProfilePage } from "../components/users/ProfilePage";
 import { UsersPage } from "../components/users/UserPage";
-import { StatsPanel } from "../components/stats/StatsPanel"; // ← ADDED (named export)
+import { StatsPanel } from "../components/stats/StatsPanel";
 import { useEtls } from "../hooks/useEtls";
 import { useExecutions } from "../hooks/useExecutions";
 import { useNotifications } from "../hooks/useNotifications";
@@ -41,7 +35,7 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
   const { executions, loadExecutions, create: createExecution, launch: launchExecution } = useExecutions();
   const { notifications, unreadCount, loadNotifications, markUnread, markAllRead, remove } = useNotifications();
 
-  const [tab, setTab] = useState("etls");
+  const [tab, setTab] = useState<string>(() => (currentUser.is_admin ? "stats" : "etls"));
   const [launchEtl, setLaunchEtl] = useState<Etl | null>(null);
   const [logExec, setLogExec] = useState<Execution | null>(null);
   const [outputExec, setOutputExec] = useState<Execution | null>(null);
@@ -60,17 +54,6 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
       fetchGroups().then(setGroups).catch(console.error);
     }
   }, [loadEtls, loadExecutions, loadNotifications, isAdmin]);
-
-  const tabs = [
-    { id: "etls",        label: isAdmin ? "Manage ETLs" : "Available ETLs" },
-    ...(isAdmin ? [{ id: "upload", label: "Upload ETL"  }] : []),
-    ...(isAdmin ? [{ id: "groups", label: "Groups"      }] : []),
-    ...(isAdmin ? [{ id: "users",  label: "Users"       }] : []),
-    ...(isAdmin ? [{ id: "stats",  label: "Stats"       }] : []), // ← ADDED
-    { id: "executions",    label: "Executions" },
-    { id: "notifications", label: "Notifications", badge: unreadCount },
-    { id: "profile",       label: "My Profile" },
-  ];
 
   function handleTabChange(next: string) {
     setTab(next);
@@ -98,113 +81,187 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
     setTab("executions");
   }
 
+  function navClass(id: string) {
+    return `${styles.navItem}${tab === id ? ` ${styles.active}` : ""}`;
+  }
+
   return (
     <div className={styles.page}>
       <Header currentUser={currentUser} onLogout={onLogout} />
 
-      <PageLayout>
-        {etlError && <div className={styles.errorBanner}>{etlError}</div>}
+      <div className={styles.layout}>
+        {/* ── Sidebar ── */}
+        <nav className={styles.sidebar}>
+          <div className={styles.navSection}>
 
-        <Tabs tabs={tabs} active={tab} onChange={handleTabChange} />
+            {/* Dashboard (Stats) — admin only */}
+            {isAdmin && (
+              <>
+                <button className={navClass("stats")} onClick={() => handleTabChange("stats")}>
+                  <i className="ti ti-layout-dashboard" aria-hidden="true" />
+                  Dashboard
+                </button>
+                <div className={styles.navDivider} />
+              </>
+            )}
 
-        {/* ETLs Tab */}
-        {tab === "etls" && (
-          <>
-            <h2 className={styles.sectionTitle}>
-              {isAdmin ? `All ETLs (${etls.length})` : `Available ETLs (${activeEtls.length})`}
-            </h2>
-            <EtlList
-              etls={displayEtls}
-              isAdmin={isAdmin}
-              currentUser={currentUser}
-              availableGroups={groups}
-              onValidate={validate}
-              onActivate={activate}
-              onLaunch={setLaunchEtl}
-              onRefresh={handleRefreshAll}
-            />
-          </>
-        )}
+            {/* ETLs */}
+            <div className={styles.navLabel}>ETLs</div>
+            <button className={navClass("etls")} onClick={() => handleTabChange("etls")}>
+              <i className="ti ti-file-stack" aria-hidden="true" />
+              {isAdmin ? "Manage ETLs" : "Available ETLs"}
+            </button>
+            {isAdmin && (
+              <button className={navClass("upload")} onClick={() => handleTabChange("upload")}>
+                <i className="ti ti-upload" aria-hidden="true" />
+                Upload ETL
+              </button>
+            )}
 
-        {/* Upload Tab */}
-        {tab === "upload" && isAdmin && (
-          <UploadEtlForm
-            onUpload={upload}
-            onGetConfig={getConfig}
-            loading={etlLoading}
-          />
-        )}
+            <div className={styles.navDivider} />
 
-        {/* Groups Tab */}
-        {tab === "groups" && isAdmin && (
-          <>
-            <h2 className={styles.sectionTitle}>User Groups</h2>
-            <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
-              Create groups, add members, then assign ETLs to groups from the ETL cards.
-              ETLs with no group assigned are visible to all users.
-            </p>
-            <GroupManager />
-          </>
-        )}
+            {/* Activity */}
+            <div className={styles.navLabel}>Activity</div>
+            <button className={navClass("executions")} onClick={() => handleTabChange("executions")}>
+              <i className="ti ti-player-play" aria-hidden="true" />
+              Executions
+            </button>
+            <button className={navClass("notifications")} onClick={() => handleTabChange("notifications")}>
+              <i className="ti ti-bell" aria-hidden="true" />
+              Notifications
+              {unreadCount > 0 && (
+                <span className={styles.navBadge}>{unreadCount}</span>
+              )}
+            </button>
 
-        {/* Users Tab */}
-        {tab === "users" && isAdmin && (
-          <UsersPage currentUser={currentUser} />
-        )}
+            {/* Admin section */}
+            {isAdmin && (
+              <>
+                <div className={styles.navDivider} />
+                <div className={styles.navLabel}>Admin</div>
+                <button className={navClass("groups")} onClick={() => handleTabChange("groups")}>
+                  <i className="ti ti-users-group" aria-hidden="true" />
+                  Groups
+                </button>
+                <button className={navClass("users")} onClick={() => handleTabChange("users")}>
+                  <i className="ti ti-user" aria-hidden="true" />
+                  Users
+                </button>
+              </>
+            )}
 
-        {/* Stats Tab (Admin only) ← ADDED */}
-        {tab === "stats" && isAdmin && (
-          <>
-            <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>Platform Stats</h2>
-            </div>
-            <StatsPanel />
-          </>
-        )}
+            <div className={styles.navDivider} />
 
-        {/* Executions Tab */}
-        {tab === "executions" && (
-          <>
-            <div className={styles.sectionHeader}>
-              <h2 className={styles.sectionTitle}>Executions ({executions.length})</h2>
-              <Button small variant="secondary" onClick={loadExecutions}>↻ Refresh</Button>
-            </div>
-            <ExecutionList
-              executions={executions}
-              onViewLogs={setLogExec}
-              onViewOutputs={setOutputExec}
-              onViewInputs={setInputExec}
-              onReviewScheduled={handleReviewScheduled}
-            />
-          </>
-        )}
+            {/* Profile */}
+            <button className={navClass("profile")} onClick={() => handleTabChange("profile")}>
+              <i className="ti ti-user-circle" aria-hidden="true" />
+              My Profile
+            </button>
 
-        {/* Notifications Tab */}
-        {tab === "notifications" && (
-          <>
-            <div className={styles.sectionHeader}>
+          </div>
+        </nav>
+
+        {/* ── Main content ── */}
+        <main className={styles.main}>
+          {etlError && <div className={styles.errorBanner}>{etlError}</div>}
+
+          {/* Stats / Dashboard */}
+          {tab === "stats" && isAdmin && (
+            <>
+              <div className={styles.sectionHeader}>
+                <h2 className={styles.sectionTitle}>Platform Stats</h2>
+              </div>
+              <StatsPanel />
+            </>
+          )}
+
+          {/* ETLs */}
+          {tab === "etls" && (
+            <>
               <h2 className={styles.sectionTitle}>
-                Notifications ({notifications.length})
+                {isAdmin ? `All ETLs (${etls.length})` : `Available ETLs (${activeEtls.length})`}
               </h2>
-            </div>
-            <NotificationList
-              notifications={notifications}
-              onMarkUnread={markUnread}
-              onDeleted={remove}
+              <EtlList
+                etls={displayEtls}
+                isAdmin={isAdmin}
+                currentUser={currentUser}
+                availableGroups={groups}
+                onValidate={validate}
+                onActivate={activate}
+                onLaunch={setLaunchEtl}
+                onRefresh={handleRefreshAll}
+              />
+            </>
+          )}
+
+          {/* Upload */}
+          {tab === "upload" && isAdmin && (
+            <UploadEtlForm
+              onUpload={upload}
+              onGetConfig={getConfig}
+              loading={etlLoading}
             />
-          </>
-        )}
+          )}
 
-        {/* Profile Tab */}
-        {tab === "profile" && (
-          <ProfilePage
-            currentUser={currentUser}
-            onProfileUpdated={onUserUpdated}
-          />
-        )}
-      </PageLayout>
+          {/* Executions */}
+          {tab === "executions" && (
+            <>
+              <div className={styles.sectionHeader}>
+                <h2 className={styles.sectionTitle}>Executions ({executions.length})</h2>
+                <Button small variant="secondary" onClick={loadExecutions}>↻ Refresh</Button>
+              </div>
+              <ExecutionList
+                executions={executions}
+                onViewLogs={setLogExec}
+                onViewOutputs={setOutputExec}
+                onViewInputs={setInputExec}
+                onReviewScheduled={handleReviewScheduled}
+              />
+            </>
+          )}
 
-      {/* Modals */}
+          {/* Notifications */}
+          {tab === "notifications" && (
+            <>
+              <div className={styles.sectionHeader}>
+                <h2 className={styles.sectionTitle}>Notifications ({notifications.length})</h2>
+              </div>
+              <NotificationList
+                notifications={notifications}
+                onMarkUnread={markUnread}
+                onDeleted={remove}
+              />
+            </>
+          )}
+
+          {/* Groups */}
+          {tab === "groups" && isAdmin && (
+            <>
+              <h2 className={styles.sectionTitle}>User Groups</h2>
+              <p style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+                Create groups, add members, then assign ETLs to groups from the ETL cards.
+                ETLs with no group assigned are visible to all users.
+              </p>
+              <GroupManager />
+            </>
+          )}
+
+          {/* Users */}
+          {tab === "users" && isAdmin && (
+            <UsersPage currentUser={currentUser} />
+          )}
+
+          {/* Profile */}
+          {tab === "profile" && (
+            <ProfilePage
+              currentUser={currentUser}
+              onProfileUpdated={onUserUpdated}
+            />
+          )}
+        </main>
+      </div>
+
+      {/* ── Modals ── */}
       {launchEtl && (
         <LaunchModal
           etl={launchEtl}
@@ -215,7 +272,9 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
         />
       )}
 
-      {logExec && <LogModal execution={logExec} onClose={() => setLogExec(null)} />}
+      {logExec && (
+        <LogModal execution={logExec} onClose={() => setLogExec(null)} />
+      )}
 
       {outputExec && (
         <div className={styles.modalOverlay}>
