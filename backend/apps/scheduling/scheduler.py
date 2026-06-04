@@ -20,60 +20,47 @@ def _do_check() -> None:
     from ..execution.models import Execution
 
     now = timezone.localtime()
-    logger.debug("[SCHEDULER] Tick at %s", now.strftime("%H:%M"))
+    print(f"[SCHEDULER] tick — server local time: {now.strftime('%Y-%m-%d %H:%M:%S %Z')}")
 
-    due = [
-        s for s in ETLSchedule.objects.select_related(
-            "etl", "etl__created_by"
-        ).prefetch_related(
-            "etl__allowed_groups",
-            "etl__allowed_groups__members",
-        ).filter(is_active=True)
-        if s.due_today_at(now)
-    ]
+    all_active = list(
+        ETLSchedule.objects.select_related("etl", "etl__created_by")
+        .prefetch_related("etl__allowed_groups", "etl__allowed_groups__members")
+        .filter(is_active=True)
+    )
 
-    if not due:
+    if not all_active:
+        print("[SCHEDULER] no active schedules in DB")
         return
 
-    for schedule in due:
-        # Guard: don't double-fire within the same minute
-        if schedule.last_triggered_at:
-            lt = timezone.localtime(schedule.last_triggered_at)
-            if (
-                lt.date()   == now.date()
-                and lt.hour   == now.hour
-                and lt.minute == now.minute
-            ):
-                logger.debug(
-                    "[SCHEDULER] Already fired '%s' this minute — skip",
-                    schedule.etl.name,
-                )
-                continue
+    for s in all_active:
+        due = s.due_today_at(now)
+        lt_str = timezone.localtime(s.last_triggered_at).strftime('%H:%M:%S') if s.last_triggered_at else "never"
+        print(f"[SCHEDULER]   '{s.etl.name}' | scheduled={s.time_of_day} | due={due} | last_triggered={lt_str}")
 
+    due_list = [s for s in all_active if s.due_today_at(now)]
+
+    if not due_list:
+        print("[SCHEDULER] nothing due this tick")
+        return
+
+    for schedule in due_list:
         etl = schedule.etl
-        logger.info("[SCHEDULER] Firing '%s' (%s)", etl.name, schedule.frequency)
+        print(f"[SCHEDULER] 🚀 FIRING '{etl.name}'")
 
-        # 1. Create PENDING execution
         execution = Execution.objects.create(
             etl=etl,
-            launched_by=None,  # system/scheduled trigger
+            launched_by=None,
             status="PENDING",
             execution_config=dict(etl.config),
             execution_label=f"{etl.name} — scheduled {now.strftime('%Y-%m-%d')}",
         )
 
-        # 2. Send emails + in-app notifications
         _send_schedule_notifications(schedule, execution, now)
 
-        # 3. Stamp last triggered
         schedule.last_triggered_at = now
         schedule.save(update_fields=["last_triggered_at"])
 
-        logger.info(
-            "[SCHEDULER] ✓ Execution %s created for '%s'",
-            execution.id,
-            etl.name,
-        )
+        print(f"[SCHEDULER] ✓ Execution {execution.id} created for '{etl.name}'")
 
 
 def _send_schedule_notifications(schedule, execution, now: datetime) -> None:
@@ -105,61 +92,44 @@ def _send_schedule_notifications(schedule, execution, now: datetime) -> None:
     _create_inapp_notifications(schedule, execution)
 
 def _create_inapp_notifications(schedule, execution) -> None:
+    """
+    In-app notifications when a scheduled run fires.
+    Notifies (once each): ETL creator + group members + individually allowed users.
+    No separate admin flood — an admin only gets notified if they're the
+    creator or a group member.
+    """
     try:
-        from django.contrib.auth import get_user_model
         from ..notification.models import Notification
 
         etl     = schedule.etl
         creator = etl.created_by
-        User    = get_user_model()
-
-        user_msg = (
-            f"A scheduled {schedule.frequency} run for \"{etl.name}\" is ready. "
-            "Please review the configuration and launch it from the Executions tab."
+        message = (
+            f"Your {schedule.frequency} scheduled run for \"{etl.name}\" is ready. "
+            "Go to the Executions tab, review the config, and click Launch."
         )
 
-        notified_ids = set()
+        notified_ids: set = set()
 
-        # Always notify the ETL creator
-        Notification.objects.create(
-            user=creator,
-            title=f"⏰ Scheduled run ready: {etl.name}",
-            message=user_msg,
-            notification_type="info",
-            execution=execution,
-        )
-        notified_ids.add(creator.id)
-
-        # Also notify all group members who have access to this ETL
-        for group in etl.allowed_groups.all():
-            for member in group.members.filter(is_active=True).exclude(id__in=notified_ids):
-                Notification.objects.create(
-                    user=member,
-                    title=f"⏰ Scheduled run ready: {etl.name}",
-                    message=user_msg,
-                    notification_type="info",
-                    execution=execution,
-                )
-                notified_ids.add(member.id)
-
-        # Also notify via email — add group members to email recipients
-        # (handled in _send_schedule_notifications via all_notify_emails,
-        #  but we patch the email set here for group-accessible ETLs)
-
-        # Admins audit trail (exclude already-notified)
-        for admin in User.objects.filter(role="admin", is_active=True).exclude(id__in=notified_ids):
+        def _notify(user):
+            if not user or user.id in notified_ids:
+                return
             Notification.objects.create(
-                user=admin,
-                title=f"📅 Scheduled run triggered: {etl.name}",
-                message=(
-                    f"Scheduler created a PENDING execution for \"{etl.name}\" "
-                    f"(owned by {creator.username}). "
-                    f"Schedule: {schedule.frequency} at "
-                    f"{schedule.time_of_day.strftime('%H:%M')}."
-                ),
+                user=user,
+                title=f"⏰ Scheduled run ready: {etl.name}",
+                message=message,
                 notification_type="info",
                 execution=execution,
             )
+            notified_ids.add(user.id)
+
+        _notify(creator)
+
+        for group in etl.allowed_groups.prefetch_related("members").all():
+            for member in group.members.filter(is_active=True):
+                _notify(member)
+
+        for user in etl.allowed_users.filter(is_active=True):
+            _notify(user)
 
     except Exception as e:
         logger.warning("[SCHEDULER] In-app notification error: %s", e, exc_info=True)
@@ -168,7 +138,7 @@ def _send_schedule_email(schedule, execution, recipient: str, now: datetime) -> 
     from django.core.mail import EmailMultiAlternatives
 
     etl          = schedule.etl
-    frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:5173")
+    frontend_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
     deep_link    = f"{frontend_url}?tab=executions&exec={execution.id}"
 
     _DAYS_SHORT   = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]

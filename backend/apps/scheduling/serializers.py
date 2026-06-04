@@ -1,6 +1,6 @@
 # scheduling/serializers.py
 from rest_framework import serializers
-from .models import ETLSchedule
+from .models import ETLSchedule, ScheduleRequest
 
 
 class ETLScheduleSerializer(serializers.ModelSerializer):
@@ -90,3 +90,39 @@ class ETLScheduleSerializer(serializers.ModelSerializer):
                 attrs.setdefault("notify_target", "creator")
 
         return attrs
+
+
+# ── ScheduleRequest ────────────────────────────────────────────────────────
+
+class ScheduleRequestSerializer(serializers.ModelSerializer):
+    requested_by_username = serializers.CharField(
+        source="requested_by.username", read_only=True
+    )
+    requested_by_email = serializers.CharField(
+        source="requested_by.email", read_only=True
+    )
+    etl_name = serializers.CharField(source="etl.name", read_only=True)
+    reviewed_by_username = serializers.CharField(
+        source="reviewed_by.username", read_only=True, default=None
+    )
+
+    class Meta:
+        model  = ScheduleRequest
+        fields = [
+            "id", "etl", "etl_name",
+            "requested_by", "requested_by_username", "requested_by_email",
+            "status",
+            "frequency", "time_of_day",
+            "day_of_week", "day_of_month", "month_of_year",
+            "note",
+            "approved_scope", "approved_specific_email", "admin_note",
+            "reviewed_by", "reviewed_by_username", "reviewed_at",
+            "created_at",
+        ]
+        read_only_fields = [
+            "id", "etl_name", "requested_by", "requested_by_username",
+            "requested_by_email", "status",
+            "approved_scope", "approved_specific_email", "admin_note",
+            "reviewed_by", "reviewed_by_username", "reviewed_at",
+            "created_at",
+        ]

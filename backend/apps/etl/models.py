@@ -27,13 +27,19 @@ class ETL(models.Model):
     path_classifications = models.JSONField(default=dict, blank=True)
 
     # ── Access control ────────────────────────────────────────────
-    # Empty = visible to all active users.
-    # One or more groups = only members of those groups can see/run it.
+    # If both allowed_groups and allowed_users are empty → visible to everyone.
+    # Otherwise → only group members OR explicitly allowed users can see/run it.
     allowed_groups = models.ManyToManyField(
         'accounts.UserGroup',
         related_name='etls',
         blank=True,
         help_text="Leave empty to allow all users. Add groups to restrict access.",
+    )
+    allowed_users = models.ManyToManyField(
+        settings.AUTH_USER_MODEL,
+        related_name='allowed_etls',
+        blank=True,
+        help_text="Individual users allowed to see and run this ETL.",
     )
 
     shared_venv_path = models.CharField(max_length=1000, blank=True)

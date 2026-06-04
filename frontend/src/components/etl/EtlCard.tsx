@@ -2,11 +2,13 @@
 import React, { useState } from "react";
 import { Etl } from "../../types/etl";
 import { UserGroup } from "../../types/group";
-import { User } from "../../types/user";
+
 import { Badge } from "../common/Badge";
 import { Button } from "../common/Button";
 import { Card } from "../common/Card";
-import { deleteEtl, editEtl, assignEtlGroups } from "../../api/etl";
+import { deleteEtl, editEtl, assignEtlGroups, assignEtlUsers } from "../../api/etl";
+import { fetchUsers } from "../../api/users";
+import { User } from "../../types/user";
 import { ScheduleEditor } from "../scheduling/scheduleEditor";
 
 const T = {
@@ -100,7 +102,15 @@ export function EtlCard({
                     fontSize: 11, padding: "1px 8px", borderRadius: 99,
                     background: T.accentBg, color: T.accent, border: `1px solid ${T.accentBorder}`,
                   }}>
-                    {g.name}
+                    👥 {g.name}
+                  </span>
+                ))}
+                {(etl.allowed_users ?? []).map(u => (
+                  <span key={u.id} style={{
+                    fontSize: 11, padding: "1px 8px", borderRadius: 99,
+                    background: "#f0fdf4", color: "#16a34a", border: "1px solid #86efac",
+                  }}>
+                    👤 {u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.username}
                   </span>
                 ))}
               </div>
@@ -192,7 +202,7 @@ export function EtlCard({
                 Delete
               </Button>
             )}
-            {!isAdmin && etl.is_active && etl.is_validated && (
+            {etl.is_active && etl.is_validated && (
               <Button onClick={() => onLaunch?.(etl)}>▶ Launch</Button>
             )}
           </div>
@@ -232,19 +242,33 @@ function EditEtlModal({ etl, onClose, onSaved }: {
   const [configFilePath, setConfigFilePath] = useState(etl.config_file_path);
   const [requirementsPath, setRequirementsPath] = useState(etl.requirements_path);
   const [pythonVersion, setPythonVersion] = useState(etl.python_version);
+  const [zipFile, setZipFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
   async function handleSave() {
     try {
       setBusy(true); setErr(null);
-      await editEtl(etl.id, {
-        name: name.trim(), description: description.trim(),
-        version: version.trim(), entry_point_path: entryPointPath.trim(),
-        config_file_path: configFilePath.trim(),
-        requirements_path: requirementsPath.trim(),
-        python_version: pythonVersion.trim(),
-      });
+      if (zipFile) {
+        const fd = new FormData();
+        fd.append("name", name.trim());
+        fd.append("description", description.trim());
+        fd.append("version", version.trim());
+        fd.append("entry_point_path", entryPointPath.trim());
+        fd.append("config_file_path", configFilePath.trim());
+        fd.append("requirements_path", requirementsPath.trim());
+        fd.append("python_version", pythonVersion.trim());
+        fd.append("zip_file", zipFile);
+        await editEtl(etl.id, fd);
+      } else {
+        await editEtl(etl.id, {
+          name: name.trim(), description: description.trim(),
+          version: version.trim(), entry_point_path: entryPointPath.trim(),
+          config_file_path: configFilePath.trim(),
+          requirements_path: requirementsPath.trim(),
+          python_version: pythonVersion.trim(),
+        });
+      }
       onSaved();
     } catch (e: any) { setErr(e.message); }
     finally { setBusy(false); }
@@ -281,6 +305,30 @@ function EditEtlModal({ etl, onClose, onSaved }: {
           <input value={requirementsPath} onChange={e => setRequirementsPath(e.target.value)}
             style={inputStyle} placeholder="e.g. requirements.txt" />
         </Field>
+
+        {/* ZIP replacement */}
+        <div style={{
+          padding: "12px 14px", borderRadius: T.r,
+          border: `1px dashed ${zipFile ? T.accent : T.border}`,
+          background: zipFile ? T.accentBg : T.surface,
+        }}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: T.textMid, marginBottom: 6 }}>
+            Replace ZIP file <span style={{ fontWeight: 400, color: T.textMuted }}>(optional)</span>
+          </div>
+          <input
+            type="file"
+            accept=".zip"
+            onChange={e => setZipFile(e.target.files?.[0] ?? null)}
+            style={{ fontSize: 12, color: T.textMid, width: "100%" }}
+          />
+          {zipFile && (
+            <div style={{ marginTop: 6, fontSize: 11, color: T.accent }}>
+              ✓ {zipFile.name} ({(zipFile.size / 1024).toFixed(0)} KB) — will replace current ZIP on save.
+              The ETL will need to be re-validated afterwards.
+            </div>
+          )}
+        </div>
+
         {err && <div style={{ fontSize: 12, color: T.danger }}>{err}</div>}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
           <button onClick={onClose} style={{
@@ -300,78 +348,137 @@ function EditEtlModal({ etl, onClose, onSaved }: {
   );
 }
 
-// ── AssignGroupsModal ─────────────────────────────────────────────
+// ── AssignGroupsModal — groups + individual users ─────────────────
 
 function AssignGroupsModal({ etl, availableGroups, onClose, onSaved }: {
   etl: Etl; availableGroups: UserGroup[];
   onClose: () => void; onSaved: () => void;
 }) {
-  const currentIds = new Set(etl.allowed_groups.map(g => g.id));
-  const [selected, setSelected] = useState<Set<string>>(new Set(currentIds));
+  const [activeTab, setActiveTab] = useState<"groups" | "users">("groups");
+  const [selectedGroups, setSelectedGroups] = useState<Set<string>>(
+    new Set(etl.allowed_groups.map(g => g.id))
+  );
+  const [selectedUsers, setSelectedUsers] = useState<Set<number>>(
+    new Set((etl.allowed_users ?? []).map(u => u.id))
+  );
+  const [allUsers, setAllUsers] = useState<User[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  function toggle(id: string) {
-    const next = new Set(selected);
+  React.useEffect(() => {
+    fetchUsers().then(setAllUsers).catch(() => {});
+  }, []);
+
+  function toggleGroup(id: string) {
+    const next = new Set(selectedGroups);
     if (next.has(id)) next.delete(id); else next.add(id);
-    setSelected(next);
+    setSelectedGroups(next);
+  }
+
+  function toggleUser(id: number) {
+    const next = new Set(selectedUsers);
+    if (next.has(id)) next.delete(id); else next.add(id);
+    setSelectedUsers(next);
   }
 
   async function handleSave() {
     try {
       setBusy(true); setErr(null);
-      await assignEtlGroups(etl.id, [...selected]);
+      await assignEtlGroups(etl.id, [...selectedGroups]);
+      await assignEtlUsers(etl.id, [...selectedUsers]);
       onSaved();
     } catch (e: any) { setErr(e.message); }
     finally { setBusy(false); }
   }
 
+  const noneSelected = selectedGroups.size === 0 && selectedUsers.size === 0;
+
+  const tabStyle = (active: boolean): React.CSSProperties => ({
+    flex: 1, padding: "8px", fontSize: 13, cursor: "pointer", fontWeight: active ? 600 : 400,
+    border: "none", borderBottom: `2px solid ${active ? T.accent : "transparent"}`,
+    background: "transparent", color: active ? T.accent : T.textMid,
+  });
+
   return (
-    <Overlay onClose={onClose} title="Assign groups" subtitle={etl.name}>
+    <Overlay onClose={onClose} title="Access control" subtitle={etl.name}>
       <div style={{
-        padding: "10px 14px", borderRadius: T.r, marginBottom: 14,
+        padding: "10px 14px", borderRadius: T.r, marginBottom: 12,
         background: T.accentBg, border: `1px solid ${T.accentBorder}`,
         fontSize: 12, color: T.accent,
       }}>
-        Select which groups can access this ETL. Leave all unchecked to make it available to everyone.
+        Assign access by group, by individual user, or both. Leave everything unchecked to allow all users.
       </div>
-      {availableGroups.length === 0 ? (
-        <div style={{ fontSize: 13, color: T.textMuted, padding: "12px 0" }}>
-          No groups exist yet. Create groups in the Groups tab first.
-        </div>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 16 }}>
-          {availableGroups.map(g => (
-            <label key={g.id} style={{
+
+      {/* Tabs */}
+      <div style={{ display: "flex", borderBottom: `1px solid ${T.border}`, marginBottom: 14 }}>
+        <button style={tabStyle(activeTab === "groups")} onClick={() => setActiveTab("groups")}>
+          Groups {selectedGroups.size > 0 && `(${selectedGroups.size})`}
+        </button>
+        <button style={tabStyle(activeTab === "users")} onClick={() => setActiveTab("users")}>
+          Users {selectedUsers.size > 0 && `(${selectedUsers.size})`}
+        </button>
+      </div>
+
+      {activeTab === "groups" && (
+        availableGroups.length === 0 ? (
+          <div style={{ fontSize: 13, color: T.textMuted, padding: "12px 0" }}>
+            No groups exist yet. Create groups in the Groups tab first.
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+            {availableGroups.map(g => (
+              <label key={g.id} style={{
+                display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
+                borderRadius: T.r, cursor: "pointer",
+                border: `1px solid ${selectedGroups.has(g.id) ? T.accentBorder : T.border}`,
+                background: selectedGroups.has(g.id) ? T.accentBg : "#fff",
+              }}>
+                <input type="checkbox" checked={selectedGroups.has(g.id)} onChange={() => toggleGroup(g.id)} />
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{g.name}</div>
+                  <div style={{ fontSize: 11, color: T.textMuted }}>
+                    {g.member_count} member{g.member_count !== 1 ? "s" : ""}
+                    {g.description ? ` · ${g.description}` : ""}
+                  </div>
+                </div>
+              </label>
+            ))}
+          </div>
+        )
+      )}
+
+      {activeTab === "users" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
+          {allUsers.filter(u => !u.is_admin).map(u => (
+            <label key={u.id} style={{
               display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
               borderRadius: T.r, cursor: "pointer",
-              border: `1px solid ${selected.has(g.id) ? T.accentBorder : T.border}`,
-              background: selected.has(g.id) ? T.accentBg : "#fff",
-              transition: "all .12s",
+              border: `1px solid ${selectedUsers.has(u.id) ? T.accentBorder : T.border}`,
+              background: selectedUsers.has(u.id) ? T.accentBg : "#fff",
             }}>
-              <input type="checkbox" checked={selected.has(g.id)} onChange={() => toggle(g.id)} />
+              <input type="checkbox" checked={selectedUsers.has(u.id)} onChange={() => toggleUser(u.id)} />
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{g.name}</div>
-                <div style={{ fontSize: 11, color: T.textMuted }}>
-                  {g.member_count} member{g.member_count !== 1 ? "s" : ""}
-                  {g.description ? ` · ${g.description}` : ""}
+                <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>
+                  {u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.username}
                 </div>
+                <div style={{ fontSize: 11, color: T.textMuted }}>@{u.username} · {u.email}</div>
               </div>
             </label>
           ))}
         </div>
       )}
-      {selected.size === 0 && availableGroups.length > 0 && (
+
+      {noneSelected && (
         <div style={{
           padding: "8px 12px", borderRadius: T.r, marginBottom: 12,
           background: T.warnBg, border: `1px solid ${T.warnBorder}`,
           fontSize: 12, color: T.warn,
         }}>
-          ⚠ No groups selected — this ETL will be visible to all users.
+          ⚠ Nothing selected — this ETL will be visible to all users.
         </div>
       )}
       {err && <div style={{ fontSize: 12, color: T.danger, marginBottom: 10 }}>{err}</div>}
-      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+      <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 8 }}>
         <button onClick={onClose} style={{
           padding: "7px 14px", borderRadius: T.r, fontSize: 13,
           border: `1px solid ${T.border}`, background: "transparent", color: T.textMid, cursor: "pointer",

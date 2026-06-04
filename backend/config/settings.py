@@ -140,7 +140,7 @@ AUTH_USER_MODEL = 'accounts.User'
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'Europe/Paris'
 
 USE_I18N = True
 
@@ -172,12 +172,16 @@ REST_FRAMEWORK = {
 }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# URL of the frontend app — used in emails to build deep links
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 # CORS settings (for frontend)
 # Allow both React's default port (3000) and Vite's default port (5173)
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
-
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ]
 
 # JWT settings

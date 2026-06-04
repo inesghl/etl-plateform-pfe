@@ -1,0 +1,6 @@
+{
+  "logs_dir": "logs",
+  "input_excel": "data/input.xlsx",
+  "deleted_rows": "deleted/deleted_rows.xlsx",
+  "output_excel": "outputs/final_outputs.xlsx "
+}

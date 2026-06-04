@@ -6,17 +6,22 @@ from .models import User, UserGroup
 
 class UserSerializer(serializers.ModelSerializer):
     is_admin = serializers.SerializerMethodField()
+    groups = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'role', 'is_admin',
             'first_name', 'last_name', 'is_active', 'date_joined', 'last_login',
+            'groups',
         ]
         read_only_fields = ['id', 'date_joined', 'last_login']
 
     def get_is_admin(self, obj):
         return obj.is_admin
+
+    def get_groups(self, obj):
+        return list(obj.user_groups.values('id', 'name', 'description'))
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):

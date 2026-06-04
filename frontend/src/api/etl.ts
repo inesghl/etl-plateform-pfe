@@ -49,11 +49,12 @@ export async function assignEtlGroups(id: string, groupIds: string[]) {
   return apiFetch(`/etls/${id}/assign_groups/`, {
     method: "POST",
     body: JSON.stringify({ group_ids: groupIds }),
-    headers: {
-      "Content-Type": "application/json",
-    },
   });
 }
 
-
-
+export async function assignEtlUsers(id: string, userIds: number[]) {
+  return apiFetch(`/etls/${id}/assign_users/`, {
+    method: "POST",
+    body: JSON.stringify({ user_ids: userIds }),
+  });
+}

@@ -9,7 +9,7 @@ interface Props {
   onProfileUpdated: (user: User) => void;
 }
 
-type Section = "info" | "password";
+type Section = "info" | "password" | "groups";
 
 export function ProfilePage({ currentUser, onProfileUpdated }: Props) {
   const { updateProfile } = useUsers();
@@ -147,6 +147,25 @@ export function ProfilePage({ currentUser, onProfileUpdated }: Props) {
         >
           Change Password
         </button>
+        {!currentUser.is_admin && (
+          <button
+            className={`${styles.tab} ${
+              section === "groups" ? styles.tabActive : ""
+            }`}
+            onClick={() => setSection("groups")}
+          >
+            My Groups
+            {(currentUser.groups?.length ?? 0) > 0 && (
+              <span style={{
+                marginLeft: 6, fontSize: 11, padding: "1px 6px",
+                borderRadius: 99, background: "#eff6ff", color: "#2563eb",
+                fontWeight: 600,
+              }}>
+                {currentUser.groups.length}
+              </span>
+            )}
+          </button>
+        )}
       </div>
 
       {/* Info Section */}
@@ -280,6 +299,39 @@ export function ProfilePage({ currentUser, onProfileUpdated }: Props) {
           >
             {pwdSaving ? "Updating…" : "Update Password"}
           </button>
+        </div>
+      )}
+
+      {/* Groups Section */}
+      {section === "groups" && (
+        <div className={styles.section}>
+          <h3 className={styles.sectionTitle}>My Groups</h3>
+          <p className={styles.sectionDesc}>
+            Groups you belong to determine which ETLs you can access.
+          </p>
+          {(currentUser.groups?.length ?? 0) === 0 ? (
+            <div style={{
+              padding: "20px 16px", borderRadius: 8,
+              background: "#f8fafc", border: "1px solid #e2e8f0",
+              fontSize: 13, color: "#94a3b8", textAlign: "center",
+            }}>
+              You are not assigned to any group yet. Contact an admin to be added.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {currentUser.groups.map(g => (
+                <div key={g.id} style={{
+                  padding: "12px 16px", borderRadius: 8,
+                  border: "1px solid #93c5fd", background: "#eff6ff",
+                }}>
+                  <div style={{ fontSize: 14, fontWeight: 600, color: "#0f172a" }}>{g.name}</div>
+                  {g.description && (
+                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>{g.description}</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

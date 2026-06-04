@@ -780,6 +780,14 @@ def _send_email_report(execution: Execution, recipient: str, output_count: int) 
             secs = (execution.completed_at - execution.started_at).total_seconds()
             duration = f"{int(secs)} seconds"
 
+        import urllib.parse
+        base_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
+        app_link = (
+            f"{base_url}?tab=executions"
+            f"&q={urllib.parse.quote(etl_name)}"
+            f"&exec={execution.id}"
+        )
+
         subject = f"[ETL Platform] {label} — {exec_status}"
 
         if exec_status == "SUCCESS":
@@ -807,6 +815,8 @@ def _send_email_report(execution: Execution, recipient: str, output_count: int) 
             for k, v in execution.config_overrides.items():
                 body += f"  {k}: {v}\n"
 
+        body += f"\nGo to execution: {app_link}\n"
+
         from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@etl-platform.local")
         send_mail(subject, body, from_email, [recipient], fail_silently=False)
         print(f"[EMAIL] Report sent to {recipient}")
@@ -817,16 +827,47 @@ def _send_email_report(execution: Execution, recipient: str, output_count: int) 
 
 
 def _handle_notifications(execution: Execution, output_count: int) -> None:
-    """Send email if requested, then mark report_sent."""
+    """Send email if requested, mark report_sent, and create a confirmation notification."""
     if execution.output_delivery not in ("email", "both"):
         return
     if not execution.notify_email:
         return
-    _send_email_report(execution, execution.notify_email, output_count)
-    execution.report_sent = True
-    execution.report_sent_at = timezone.now()
-    execution.save(update_fields=["report_sent", "report_sent_at"])
 
+    try:
+        _send_email_report(execution, execution.notify_email, output_count)
+        execution.report_sent = True
+        execution.report_sent_at = timezone.now()
+        execution.save(update_fields=["report_sent", "report_sent_at"])
+
+        if execution.launched_by:
+            try:
+                from ...notification.models import Notification
+                Notification.objects.create(
+                    user=execution.launched_by,
+                    title=f"📧 Report sent — {execution.etl.name}",
+                    message=f"Execution report was automatically sent to {execution.notify_email}.",
+                    notification_type="success",
+                    execution=execution,
+                )
+            except Exception as e:
+                print(f"[NOTIFY] Could not create email-sent notification: {e}")
+    except Exception as e:
+        print(f"[EMAIL] Auto-report failed: {e}")
+        if execution.launched_by:
+            try:
+                from ...notification.models import Notification
+                Notification.objects.create(
+                    user=execution.launched_by,
+                    title=f"❌ Report email failed — {execution.etl.name}",
+                    message=(
+                        f"Could not send the report to {execution.notify_email}. "
+                        f"Error: {str(e)[:200]}. You can retry from the Executions tab."
+                    ),
+                    notification_type="error",
+                    execution=execution,
+                )
+            except Exception:
+                pass
 
 # ─────────────────────────────────────────────────────────────
 # Main orchestrator

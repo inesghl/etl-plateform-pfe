@@ -20,13 +20,7 @@ export interface AdminUserUpdatePayload {
 
 export async function fetchUsers(): Promise<User[]> {
   const data = await apiFetch("/users/");
-  const results: User[] = Array.isArray(data) ? data : (data.results ?? []);
-  // Temporary: log first user to confirm id field exists and its type
-  if (results.length > 0) {
-    console.log("[fetchUsers] first user:", results[0]);
-    console.log("[fetchUsers] id value:", results[0].id, "type:", typeof results[0].id);
-  }
-  return results;
+  return Array.isArray(data) ? data : (data.results ?? []);
 }
 
 export async function fetchUser(id: number): Promise<User> {

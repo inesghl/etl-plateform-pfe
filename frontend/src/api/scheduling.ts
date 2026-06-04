@@ -90,3 +90,90 @@ export async function fireScheduleNow(
 ): Promise<{ detail: string; execution_id: string }> {
   return apiFetch(`/schedules/${id}/fire_now/`, { method: "POST" });
 }
+
+// ── Schedule Requests ─────────────────────────────────────────────────────
+
+export type RequestStatus = "pending" | "approved" | "rejected";
+export type ApproveScope  = "requester" | "group" | "specific";
+
+export interface ScheduleRequest {
+  id: string;
+  etl: string;
+  etl_name: string;
+  requested_by: number;
+  requested_by_username: string;
+  requested_by_email: string;
+  status: RequestStatus;
+  frequency: Frequency;
+  time_of_day: string;
+  day_of_week: number | null;
+  day_of_month: number | null;
+  month_of_year: number | null;
+  note: string;
+  approved_scope: ApproveScope | "";
+  approved_specific_email: string;
+  admin_note: string;
+  reviewed_by: number | null;
+  reviewed_by_username: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
+export interface ScheduleRequestPayload {
+  etl: string;
+  frequency: Frequency;
+  time_of_day: string;
+  day_of_week?: number | null;
+  day_of_month?: number | null;
+  month_of_year?: number | null;
+  note?: string;
+}
+
+export async function fetchScheduleRequests(): Promise<ScheduleRequest[]> {
+  const data = await apiFetch("/schedule-requests/");
+  return Array.isArray(data) ? data : (data.results ?? []);
+}
+
+export async function fetchRequestsForEtl(etlId: string): Promise<ScheduleRequest[]> {
+  const all = await fetchScheduleRequests();
+  return all.filter(r => r.etl === etlId);
+}
+
+export async function createScheduleRequest(
+  payload: ScheduleRequestPayload,
+): Promise<ScheduleRequest> {
+  return apiFetch("/schedule-requests/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function approveScheduleRequest(
+  id: string,
+  scope: ApproveScope,
+  specificEmail?: string,
+  adminNote?: string,
+): Promise<{ detail: string; schedule: ETLSchedule; request: ScheduleRequest }> {
+  return apiFetch(`/schedule-requests/${id}/approve/`, {
+    method: "POST",
+    body: JSON.stringify({
+      scope,
+      specific_email: specificEmail ?? "",
+      admin_note: adminNote ?? "",
+    }),
+  });
+}
+
+export async function rejectScheduleRequest(
+  id: string,
+  note?: string,
+): Promise<ScheduleRequest> {
+  return apiFetch(`/schedule-requests/${id}/reject/`, {
+    method: "POST",
+    body: JSON.stringify({ note: note ?? "" }),
+  });
+}
+
+export async function deleteScheduleRequest(id: string): Promise<void> {
+  return apiFetch(`/schedule-requests/${id}/`, { method: "DELETE" });
+}

@@ -7,7 +7,7 @@ class ExecutionSerializer(serializers.ModelSerializer):
        source="launched_by.username",
        read_only=True,
    )
-
+   duration_seconds = serializers.ReadOnlyField()
 
    class Meta:
        model = Execution
@@ -33,6 +33,15 @@ class ExecutionSerializer(serializers.ModelSerializer):
            "venv_path",
            "dependencies_installed",
            "dependencies_log",
+           "duration_seconds",
+           # Config & delivery — needed by the frontend cards
+           "execution_config",
+           "config_overrides",
+           "path_classifications",
+           "output_delivery",
+           "notify_email",
+           "report_sent",
+           "report_sent_at",
        ]
        read_only_fields = [
            "id",
@@ -53,6 +62,9 @@ class ExecutionSerializer(serializers.ModelSerializer):
            "venv_path",
            "dependencies_installed",
            "dependencies_log",
+           "duration_seconds",
+           "report_sent",
+           "report_sent_at",
        ]
 
 

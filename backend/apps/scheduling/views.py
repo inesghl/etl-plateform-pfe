@@ -3,26 +3,34 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q
-from .models import ETLSchedule
-from .serializers import ETLScheduleSerializer
+from django.utils import timezone
+from .models import ETLSchedule, ScheduleRequest
+from .serializers import ETLScheduleSerializer, ScheduleRequestSerializer
 
 
 def _notify_admins_of_action(user, action_label: str, etl_name: str, schedule_id=None):
-    """Create an in-app notification for every admin whenever someone touches a schedule."""
+    """
+    Notify OTHER admins when someone changes a schedule.
+    The admin who performed the action is excluded — no self-notification.
+    """
     try:
         from django.contrib.auth import get_user_model
         from ..notification.models import Notification
 
         User = get_user_model()
-        admins = User.objects.filter(role="admin", is_active=True)
-        for admin in admins:
+        # Exclude the user who performed the action
+        other_admins = User.objects.filter(
+            role="admin", is_active=True
+        ).exclude(id=user.id)
+
+        for admin in other_admins:
             Notification.objects.create(
                 user=admin,
                 title=f"📅 Schedule {action_label}: {etl_name}",
                 message=(
-                    f"User '{user.username}' ({user.email}) {action_label.lower()} "
+                    f"{user.username} {action_label.lower()} "
                     f"a schedule for ETL \"{etl_name}\"."
-                    + (f" (Schedule ID: {schedule_id})" if schedule_id else "")
+                    + (f" (ID: {schedule_id})" if schedule_id else "")
                 ),
                 notification_type="info",
             )
@@ -145,3 +153,202 @@ class ETLScheduleViewSet(viewsets.ModelViewSet):
             {"detail": "Execution created.", "execution_id": str(execution.id)},
             status=status.HTTP_201_CREATED,
         )
+
+
+# ─────────────────────────────────────────────────────────────
+# ScheduleRequestViewSet — users request schedules, admin approves
+# ─────────────────────────────────────────────────────────────
+
+class ScheduleRequestViewSet(viewsets.ModelViewSet):
+    """
+    Users create requests for schedules.
+    Admin reviews (approve / reject) requests.
+    On approval, admin chooses scope: just the requester, their whole group,
+    or a specific email.
+    """
+    serializer_class   = ScheduleRequestSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names  = ["get", "post", "delete", "head", "options"]
+
+    def get_queryset(self):
+        user = self.request.user
+        if getattr(user, "is_admin", False):
+            # Admin sees ALL requests (most useful: pending first)
+            return ScheduleRequest.objects.select_related(
+                "etl", "requested_by", "reviewed_by"
+            ).order_by("status", "-created_at")
+        # Regular users see only their own
+        return ScheduleRequest.objects.filter(
+            requested_by=user
+        ).select_related("etl").order_by("-created_at")
+
+    def perform_create(self, serializer):
+        etl = serializer.validated_data["etl"]
+
+        # Prevent duplicate pending requests for the same ETL by the same user
+        existing = ScheduleRequest.objects.filter(
+            etl=etl, requested_by=self.request.user, status="pending"
+        ).first()
+        if existing:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError(
+                {"detail": "You already have a pending schedule request for this ETL."}
+            )
+
+        req = serializer.save(requested_by=self.request.user)
+
+        # Notify all admins about the new request
+        try:
+            from django.contrib.auth import get_user_model
+            from ..notification.models import Notification
+            User = get_user_model()
+            for admin in User.objects.filter(role="admin", is_active=True):
+                Notification.objects.create(
+                    user=admin,
+                    title=f"📅 Schedule requested: {etl.name}",
+                    message=(
+                        f"{self.request.user.username} requested a "
+                        f"{req.frequency} schedule for \"{etl.name}\""
+                        + (f": \"{req.note}\"" if req.note else ".")
+                    ),
+                    notification_type="info",
+                )
+        except Exception as e:
+            import logging
+            logging.getLogger("scheduling").warning("Admin notify for request failed: %s", e)
+
+    # ── approve ────────────────────────────────────────────────────────
+    @action(detail=True, methods=["post"])
+    def approve(self, request, pk=None):
+        """
+        Admin approves a schedule request.
+        Body: {
+            scope: "requester" | "group" | "specific",
+            specific_email: "...",    (only when scope=specific)
+            admin_note: "..."         (optional)
+        }
+        Creates or replaces the ETLSchedule for this ETL.
+        """
+        if not getattr(request.user, "is_admin", False):
+            return Response({"detail": "Only admins can approve requests."}, status=403)
+
+        req: ScheduleRequest = self.get_object()
+        if req.status != "pending":
+            return Response(
+                {"detail": f"This request is already {req.status}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        scope          = request.data.get("scope", "requester")
+        specific_email = request.data.get("specific_email", "")
+        admin_note     = request.data.get("admin_note", "")
+
+        if scope not in ("requester", "group", "specific"):
+            return Response({"detail": "scope must be: requester, group, specific."}, status=400)
+        if scope == "specific" and not specific_email:
+            return Response({"detail": "specific_email is required when scope=specific."}, status=400)
+
+        # Map scope → notify_target on ETLSchedule
+        notify_target_map = {
+            "requester": "specific",   # notify just this user
+            "group":     "group",
+            "specific":  "specific",
+        }
+        notify_email = (
+            req.requested_by.email if scope == "requester"
+            else specific_email if scope == "specific"
+            else ""
+        )
+
+        # Create or replace the ETLSchedule
+        ETLSchedule.objects.filter(etl=req.etl).delete()
+        schedule = ETLSchedule.objects.create(
+            etl=req.etl,
+            is_active=True,
+            frequency=req.frequency,
+            time_of_day=req.time_of_day,
+            day_of_week=req.day_of_week,
+            day_of_month=req.day_of_month,
+            month_of_year=req.month_of_year,
+            notify_target=notify_target_map[scope],
+            notify_specific_email=notify_email,
+        )
+
+        # Update the request
+        req.status                 = "approved"
+        req.approved_scope         = scope
+        req.approved_specific_email = notify_email
+        req.admin_note             = admin_note
+        req.reviewed_by            = request.user
+        req.reviewed_at            = timezone.now()
+        req.save()
+
+        # Notify the requester
+        try:
+            from ..notification.models import Notification
+            scope_label = {
+                "requester": "you only",
+                "group":     "your entire group",
+                "specific":  specific_email,
+            }[scope]
+            freq_label = dict(ETLSchedule._meta.get_field("frequency").choices).get(
+                req.frequency, req.frequency
+            )
+            Notification.objects.create(
+                user=req.requested_by,
+                title=f"✅ Schedule approved: {req.etl.name}",
+                message=(
+                    f"Your schedule request for \"{req.etl.name}\" has been approved. "
+                    f"It will run {freq_label} at {req.time_of_day.strftime('%H:%M')}. "
+                    f"Notifications will go to {scope_label}."
+                    + (f" Admin note: {admin_note}" if admin_note else "")
+                ),
+                notification_type="success",
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger("scheduling").warning("Requester notify failed: %s", e)
+
+        return Response({
+            "detail": "Request approved. Schedule created.",
+            "schedule": ETLScheduleSerializer(schedule).data,
+            "request":  ScheduleRequestSerializer(req).data,
+        })
+
+    # ── reject ─────────────────────────────────────────────────────────
+    @action(detail=True, methods=["post"])
+    def reject(self, request, pk=None):
+        """Admin rejects a request with an optional reason."""
+        if not getattr(request.user, "is_admin", False):
+            return Response({"detail": "Only admins can reject requests."}, status=403)
+
+        req: ScheduleRequest = self.get_object()
+        if req.status != "pending":
+            return Response(
+                {"detail": f"This request is already {req.status}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        admin_note  = request.data.get("note", "")
+        req.status  = "rejected"
+        req.admin_note = admin_note
+        req.reviewed_by = request.user
+        req.reviewed_at = timezone.now()
+        req.save()
+
+        # Notify the requester
+        try:
+            from ..notification.models import Notification
+            Notification.objects.create(
+                user=req.requested_by,
+                title=f"❌ Schedule request declined: {req.etl.name}",
+                message=(
+                    f"Your schedule request for \"{req.etl.name}\" was not approved."
+                    + (f" Reason: {admin_note}" if admin_note else "")
+                ),
+                notification_type="warning",
+            )
+        except Exception:
+            pass
+
+        return Response(ScheduleRequestSerializer(req).data)

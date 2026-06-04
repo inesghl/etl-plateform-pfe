@@ -78,3 +78,28 @@ export interface DashboardStatsData {
 export async function fetchDashboardStats(range: StatsRange): Promise<DashboardStatsData> {
   return apiFetch(`/dashboard/?range=${range}`);
 }
+
+// ── User-scoped stats ─────────────────────────────────────────────────────
+
+export interface LastExecution {
+  id: string;
+  etl__name: string;
+  status: string;
+  launched_at: string;
+  completed_at: string | null;
+}
+
+export interface UserStatsData {
+  range: StatsRange;
+  kpis: StatsKPIs;
+  status_distribution: StatusDist[];
+  timeline: TimelineRow[];
+  top_etls: TopETL[];
+  file_types: FileTypeStat[];
+  recent_failures: RecentFailure[];
+  last_execution: LastExecution | null;
+}
+
+export async function fetchUserStats(range: StatsRange): Promise<UserStatsData> {
+  return apiFetch(`/my-stats/?range=${range}`);
+}

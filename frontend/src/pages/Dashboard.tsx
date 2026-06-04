@@ -17,6 +17,7 @@ import { GroupManager } from "../components/groups/GroupManager";
 import { ProfilePage } from "../components/users/ProfilePage";
 import { UsersPage } from "../components/users/UserPage";
 import { StatsPanel } from "../components/stats/StatsPanel";
+import { UserStatsPanel } from "../components/stats/UserStatsPanel";
 import { useEtls } from "../hooks/useEtls";
 import { useExecutions } from "../hooks/useExecutions";
 import { useNotifications } from "../hooks/useNotifications";
@@ -35,7 +36,14 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
   const { executions, loadExecutions, create: createExecution, launch: launchExecution } = useExecutions();
   const { notifications, unreadCount, loadNotifications, markUnread, markAllRead, remove } = useNotifications();
 
-  const [tab, setTab] = useState<string>(() => (currentUser.is_admin ? "stats" : "etls"));
+  // Read URL params — used by email deep links (?tab=executions&q=ETL+Name)
+  const urlParams = new URLSearchParams(window.location.search);
+  // Admins default to platform dashboard, regular users to their personal dashboard
+  const initialTab = urlParams.get("tab") || (currentUser.is_admin ? "stats" : "my-stats");
+  const initialSearch = urlParams.get("q") || "";
+
+  const [tab, setTab] = useState<string>(initialTab);
+  const [execSearch, setExecSearch] = useState<string>(initialSearch);
   const [launchEtl, setLaunchEtl] = useState<Etl | null>(null);
   const [logExec, setLogExec] = useState<Execution | null>(null);
   const [outputExec, setOutputExec] = useState<Execution | null>(null);
@@ -53,7 +61,20 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
     if (isAdmin) {
       fetchGroups().then(setGroups).catch(console.error);
     }
+    // Clean the URL params after reading them (keeps the address bar tidy)
+    if (window.location.search) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
   }, [loadEtls, loadExecutions, loadNotifications, isAdmin]);
+
+  // Auto-refresh the executions list while any execution is active
+  useEffect(() => {
+    const active = ["PENDING", "INSTALLING_DEPS", "RUNNING", "VALIDATING"];
+    const hasActive = executions.some(e => active.includes(e.status));
+    if (!hasActive) return;
+    const timer = setInterval(loadExecutions, 4000);
+    return () => clearInterval(timer);
+  }, [executions, loadExecutions]);
 
   function handleTabChange(next: string) {
     setTab(next);
@@ -94,16 +115,20 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
         <nav className={styles.sidebar}>
           <div className={styles.navSection}>
 
-            {/* Dashboard (Stats) — admin only */}
+            {/* My Dashboard — all users */}
+            <button className={navClass("my-stats")} onClick={() => handleTabChange("my-stats")}>
+              <i className="ti ti-chart-bar" aria-hidden="true" />
+              My Dashboard
+            </button>
+
+            {/* Platform Dashboard — admin only */}
             {isAdmin && (
-              <>
-                <button className={navClass("stats")} onClick={() => handleTabChange("stats")}>
-                  <i className="ti ti-layout-dashboard" aria-hidden="true" />
-                  Dashboard
-                </button>
-                <div className={styles.navDivider} />
-              </>
+              <button className={navClass("stats")} onClick={() => handleTabChange("stats")}>
+                <i className="ti ti-layout-dashboard" aria-hidden="true" />
+                Platform Stats
+              </button>
             )}
+            <div className={styles.navDivider} />
 
             {/* ETLs */}
             <div className={styles.navLabel}>ETLs</div>
@@ -165,7 +190,17 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
         <main className={styles.main}>
           {etlError && <div className={styles.errorBanner}>{etlError}</div>}
 
-          {/* Stats / Dashboard */}
+          {/* Personal Dashboard — all users */}
+          {tab === "my-stats" && (
+            <>
+              <div className={styles.sectionHeader}>
+                <h2 className={styles.sectionTitle}>My Dashboard</h2>
+              </div>
+              <UserStatsPanel currentUser={currentUser} />
+            </>
+          )}
+
+          {/* Platform Stats — admin only */}
           {tab === "stats" && isAdmin && (
             <>
               <div className={styles.sectionHeader}>
@@ -212,6 +247,7 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
               </div>
               <ExecutionList
                 executions={executions}
+                initialSearch={execSearch}
                 onViewLogs={setLogExec}
                 onViewOutputs={setOutputExec}
                 onViewInputs={setInputExec}

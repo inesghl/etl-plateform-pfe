@@ -31,12 +31,9 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-
-        # Admins see everything (their own + all user-specific + broadcasts)
-        if getattr(user, "is_admin", False):
-            return Notification.objects.all().order_by("-created_at")
-
-        # Regular users: their own + broadcasts (user=None)
+        # Everyone — including admins — sees only their OWN notifications
+        # plus global broadcasts (user=None). Admin-targeted notifications are
+        # created with user=<that admin> explicitly, so they still appear.
         return Notification.objects.filter(
             Q(user=user) | Q(user__isnull=True)
         ).order_by("-created_at")

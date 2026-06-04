@@ -1,0 +1,14 @@
+{
+  "input2": {
+    "path": "data/folder/",
+    "file1": "test_drive.xlsx",
+    "file2": "parc*S*.xlsx",
+    "file3": "*test.txt",
+    "file4": "-",
+    "files number": 45
+  },
+  "logs_dir": "logs",
+  "input_excel": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Documents\\data\\input1.xlsx",
+  "deleted_rows": "deleted/deleted_rows.xlsx",
+  "output_excel": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Documents\\outputTEST"
+}

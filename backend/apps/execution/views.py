@@ -3,6 +3,7 @@ execution/views.py
 ──────────────────
 """
 import os
+import threading
 from pathlib import Path
 
 from django.db.models import Q
@@ -29,27 +30,32 @@ from ..common.path_utils import (
 
 
 def _notify_group_of_launch(execution):
-    """Tell group members that someone launched this shared execution."""
+    """Tell group members + individually allowed users that someone launched
+    this shared execution. The launcher is excluded (no self-notification)."""
     try:
         from ..notification.models import Notification
-        etl = execution.etl
+        etl      = execution.etl
         launcher = execution.launched_by
         notified_ids = {launcher.id}
+        label = execution.execution_label or etl.name
+
+        def _notify(user):
+            if user.id in notified_ids:
+                return
+            Notification.objects.create(
+                user=user,
+                title=f"▶ {launcher.username} launched: {etl.name}",
+                message=f"{launcher.username} launched \"{label}\". No action needed from you.",
+                notification_type="info",
+                execution=execution,
+            )
+            notified_ids.add(user.id)
 
         for group in etl.allowed_groups.all():
-            for member in group.members.filter(is_active=True).exclude(id__in=notified_ids):
-                Notification.objects.create(
-                    user=member,
-                    title=f"▶ Launched by {launcher.username}: {etl.name}",
-                    message=(
-                        f"{launcher.username} has launched the scheduled run "
-                        f"\"{execution.execution_label}\" for \"{etl.name}\". "
-                        f"You don't need to take action."
-                    ),
-                    notification_type="info",
-                    execution=execution,
-                )
-                notified_ids.add(member.id)
+            for member in group.members.filter(is_active=True):
+                _notify(member)
+        for user in etl.allowed_users.filter(is_active=True):
+            _notify(user)
     except Exception as e:
         import logging
         logging.getLogger("execution").warning("Group launch notify failed: %s", e)
@@ -246,7 +252,10 @@ class ExecutionViewSet(viewsets.ModelViewSet):
             "output_delivery", "notify_email", "launched_by",
         ])
 
-        run_execution(execution)
+        thread = threading.Thread(
+            target=run_execution, args=(execution,), daemon=True
+        )
+        thread.start()
 
         if execution.launched_by is not None:
             _notify_group_of_launch(execution)
@@ -268,15 +277,33 @@ class ExecutionViewSet(viewsets.ModelViewSet):
 
         try:
             from ..notification.services.email_service import send_execution_report
+            from ..notification.models import Notification
             send_execution_report(execution, recipient=email)
-            execution.report_sent    = True
+            execution.report_sent = True
             execution.report_sent_at = tz.now()
-            execution.notify_email   = email
+            execution.notify_email = email
             execution.save(update_fields=["report_sent", "report_sent_at", "notify_email"])
+            Notification.objects.create(
+                user=request.user,
+                title=f"📧 Report sent — {execution.etl.name}",
+                message=f"The execution report was successfully sent to {email}.",
+                notification_type="success",
+                execution=execution,
+            )
             return Response({"detail": f"Report sent to {email}."})
         except Exception as e:
+            try:
+                from ..notification.models import Notification
+                Notification.objects.create(
+                    user=request.user,
+                    title=f"❌ Report failed — {execution.etl.name}",
+                    message=f"Could not send the report to {email}. Error: {str(e)[:200]}",
+                    notification_type="error",
+                    execution=execution,
+                )
+            except Exception:
+                pass
             return Response({"detail": f"Failed to send email: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
     # ── download_output ───────────────────────────────────────────────
 
     @action(detail=True, methods=["get"], url_path=r"download-output/(?P<filename>.+)")

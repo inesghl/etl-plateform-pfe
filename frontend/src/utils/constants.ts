@@ -5,7 +5,7 @@ export const STATUS_COLORS: Record<string, string> = {
   PENDING: "#d97706",
   FAILED: "#dc2626",
   VALIDATION_FAILED: "#dc2626",
-  VALIDATED: "#0891b2",
+  VALIDATED: "#16a34a",
   VALIDATING: "#0891b2",
   CANCELLED: "#64748b",
 };

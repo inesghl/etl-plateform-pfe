@@ -117,7 +117,10 @@ class ETLViewSet(viewsets.ModelViewSet):
         return ETL.objects.filter(
             is_active=True, is_validated=True
         ).filter(
-            Q(allowed_groups__isnull=True) | Q(allowed_groups__id__in=user_group_ids)
+            # Unrestricted (both M2M are empty) OR user has access via group or direct assignment
+            Q(allowed_groups__isnull=True, allowed_users__isnull=True)
+            | Q(allowed_groups__id__in=user_group_ids)
+            | Q(allowed_users=user)
         ).distinct().order_by("-created_at")
 
     def perform_create(self, serializer):
@@ -329,6 +332,21 @@ class ETLViewSet(viewsets.ModelViewSet):
         if newly_added:
             _notify_group_members(etl, newly_added)
 
+        return Response(ETLSerializer(etl, context={'request': request}).data)
+
+    # ── assign_users (admin) ──────────────────────────────────────
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsAdmin])
+    def assign_users(self, request, pk=None):
+        """
+        Set which individual users can access this ETL.
+        Body: { "user_ids": [1, 2, ...] }
+        Pass an empty list to remove all individual-user restrictions.
+        """
+        etl: ETL = self.get_object()
+        user_ids = request.data.get("user_ids", [])
+        new_users = list(User.objects.filter(id__in=user_ids))
+        etl.allowed_users.set(new_users)
         return Response(ETLSerializer(etl, context={'request': request}).data)
 
     # ── read_config ───────────────────────────────────────────────

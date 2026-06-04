@@ -1,6 +1,7 @@
 import uuid
 import calendar
 
+from django.conf import settings
 from django.db import models
 
 
@@ -158,26 +159,94 @@ class ETLSchedule(models.Model):
         return min(self.day_of_month, last_day)
 
     # ── Due check ────────────────────────────────────────────────────────────
+    # ── Due check (catch-up: first poll AT or AFTER the time, once/day) ──
     def due_today_at(self, now) -> bool:
         if not self.is_active:
             return False
-        t = self.time_of_day
-        if not (now.hour == t.hour and now.minute == t.minute):
-            return False
-        if self.frequency == "daily":
-            return True
+
         if self.frequency == "weekly":
-            return self.day_of_week is not None and now.weekday() == self.day_of_week
-        if self.frequency == "monthly":
-            return (
-                self.day_of_month is not None
-                and now.day == self._effective_dom(now)
-            )
-        if self.frequency == "yearly":
-            return (
-                self.day_of_month is not None
-                and self.month_of_year is not None
-                and now.month == self.month_of_year
-                and now.day == self._effective_dom(now)
-            )
-        return False
+            if self.day_of_week is None or now.weekday() != self.day_of_week:
+                return False
+        elif self.frequency == "monthly":
+            if self.day_of_month is None or now.day != self._effective_dom(now):
+                return False
+        elif self.frequency == "yearly":
+            if (self.day_of_month is None or self.month_of_year is None
+                    or now.month != self.month_of_year
+                    or now.day != self._effective_dom(now)):
+                return False
+        # daily → any day
+
+        t = self.time_of_day
+        scheduled_today = now.replace(hour=t.hour, minute=t.minute, second=0, microsecond=0)
+        if now < scheduled_today:
+            return False
+
+        if self.last_triggered_at:
+            from django.utils import timezone as _tz
+            lt = _tz.localtime(self.last_triggered_at)
+            if lt >= scheduled_today:
+                return False
+
+        return True
+
+
+# ─────────────────────────────────────────────────────────────
+# ScheduleRequest — user asks admin to set up a schedule
+# ─────────────────────────────────────────────────────────────
+
+class ScheduleRequest(models.Model):
+    STATUS_CHOICES = [
+        ("pending",  "Pending review"),
+        ("approved", "Approved"),
+        ("rejected", "Rejected"),
+    ]
+
+    SCOPE_CHOICES = [
+        ("requester", "Just me"),
+        ("group",     "My group"),
+        ("specific",  "Specific email"),
+    ]
+
+    id           = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    etl          = models.ForeignKey(
+        "etl.ETL", on_delete=models.CASCADE, related_name="schedule_requests"
+    )
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="schedule_requests",
+    )
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="pending")
+
+    # What the user wants
+    frequency     = models.CharField(max_length=10, choices=FREQ_CHOICES, default="daily")
+    time_of_day   = models.TimeField(help_text="Preferred run time (HH:MM)")
+    day_of_week   = models.IntegerField(null=True, blank=True, choices=DAY_CHOICES)
+    day_of_month  = models.IntegerField(null=True, blank=True)
+    month_of_year = models.IntegerField(null=True, blank=True, choices=MONTH_CHOICES)
+    note          = models.TextField(blank=True, help_text="Why do you need this schedule?")
+
+    # Admin decision
+    approved_scope        = models.CharField(
+        max_length=10, choices=SCOPE_CHOICES, blank=True,
+        help_text="Who gets notified when the schedule fires."
+    )
+    approved_specific_email = models.EmailField(blank=True)
+    admin_note            = models.TextField(blank=True)
+    reviewed_by           = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name="reviewed_schedule_requests",
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    created_at  = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = "scheduling"
+        db_table  = "etl_schedule_requests"
+        ordering  = ["-created_at"]
+
+    def __str__(self):
+        return f"ScheduleRequest({self.etl.name}, {self.requested_by}, {self.status})"

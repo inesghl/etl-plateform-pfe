@@ -1,4 +1,10 @@
 // src/types/user.ts
+export interface UserGroupSummary {
+  id: string;
+  name: string;
+  description: string;
+}
+
 export interface User {
   id: number;
   username: string;
@@ -10,4 +16,5 @@ export interface User {
   is_active: boolean;
   date_joined: string;
   last_login: string | null;
+  groups: UserGroupSummary[];
 }
