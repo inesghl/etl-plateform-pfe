@@ -1,0 +1,42 @@
+{
+  "execution_id": "4cf8ebd6-fcf0-466d-9b66-88db3f6d4845",
+  "etl_id": "dee51634-bdfb-484b-a1c3-148ab07a4563",
+  "work_directory": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\4cf8ebd6-fcf0-466d-9b66-88db3f6d4845",
+  "outputs": {
+    "directory": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\4cf8ebd6-fcf0-466d-9b66-88db3f6d4845\\outputs",
+    "deleted": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\4cf8ebd6-fcf0-466d-9b66-88db3f6d4845\\deleted",
+    "archive": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\4cf8ebd6-fcf0-466d-9b66-88db3f6d4845\\archive"
+  },
+  "config": {
+    "currency": "TND",
+    "logs_dir": "C:\\Users\\ines.ghali_amaris\\Downloads\\sample_desktop_data\\logs",
+    "vat_rate": 0.19,
+    "output_report": "C:\\Users\\ines.ghali_amaris\\Downloads\\sample_desktop_data\\etl_output\\final_outputs.xlsx",
+    "invoices_excel": "C:\\Users\\ines.ghali_amaris\\Downloads\\sample_desktop_data\\sample_data\\invoices.xlsx",
+    "reference_date": "2026-05-30",
+    "amount_tolerance": "2026-06-13",
+    "suppliers_folder": {
+      "path": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\4cf8ebd6-fcf0-466d-9b66-88db3f6d4845\\suppliers",
+      "file1": "suppliers_*.xlsx",
+      "file2": "*_active.xlsx",
+      "check_mode": "both",
+      "files number": 2
+    },
+    "rejected_invoices": "C:/Users/YourName/Desktop/etl_output/rejected_invoices.xlsx",
+    "payment_overdue_days": "2026-05-30",
+    "purchase_orders_excel": "C:\\Users\\ines.ghali_amaris\\Downloads\\sample_desktop_data\\sample_data\\purchase_orders.xlsx"
+  },
+  "config_overrides": {
+    "output_report": "C:\\Users\\ines.ghali_amaris\\Downloads\\sample_desktop_data\\etl_output\\final_outputs.xlsx",
+    "reference_date": "2026-05-30",
+    "amount_tolerance": "2026-06-13",
+    "suppliers_folder": {
+      "path": "C:\\Users\\ines.ghali_amaris\\Downloads\\sample_desktop_data\\sample_data\\suppliers",
+      "file1": "suppliers_*.xlsx",
+      "file2": "*_active.xlsx",
+      "check_mode": "both",
+      "files number": 2
+    },
+    "payment_overdue_days": "2026-05-30"
+  }
+}

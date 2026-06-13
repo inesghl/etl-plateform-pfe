@@ -15,3 +15,9 @@ venv/
 # Environment variables
 .env
 .env.*
+
+backend/storage/etl_venvs/*
+backend/storage/etls/*
+backend/storage/executions/*
+backend/storage/extracted/*
+backend/storage/inputs/*
