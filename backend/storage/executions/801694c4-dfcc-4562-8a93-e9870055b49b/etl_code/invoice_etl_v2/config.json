@@ -1,0 +1,19 @@
+{
+  "currency": "TND",
+  "logs_dir": "C:\\Users\\ghali\\Downloads\\sample_desktop_data\\sample_data\\logs",
+  "vat_rate": 0.19,
+  "output_report": "C:\\Users\\ghali\\Downloads\\sample_desktop_data\\sample_data\\ouutput\\output.xlsx",
+  "invoices_excel": "C:\\Users\\ghali\\Downloads\\sample_desktop_data\\sample_data\\invoices.xlsx",
+  "reference_date": "2026-06-13",
+  "amount_tolerance": 5.0,
+  "suppliers_folder": {
+    "path": "C:\\Users\\ghali\\PycharmProjects\\PythonProject\\etl-plateform-pfe\\backend\\storage\\executions\\801694c4-dfcc-4562-8a93-e9870055b49b\\suppliers",
+    "file1": "suppliers_*.xlsx",
+    "file2": "blacklist_*.xlsx",
+    "file3": "-",
+    "files number": 2
+  },
+  "rejected_invoices": "C:\\Users\\ghali\\Downloads\\sample_desktop_data\\sample_data\\ouutput\\rejected.xlsx",
+  "payment_overdue_days": 30,
+  "purchase_orders_excel": "C:\\Users\\ghali\\Downloads\\sample_desktop_data\\sample_data\\purchase_orders.xlsx"
+}

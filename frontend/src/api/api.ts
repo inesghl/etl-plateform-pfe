@@ -33,6 +33,9 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
       const errorData = JSON.parse(raw);
       if (errorData.detail) {
         errorMessage = errorData.detail;
+        if (Array.isArray(errorData.errors) && errorData.errors.length > 0) {
+          errorMessage += " — " + errorData.errors.join(" · ");
+        }
       } else if (errorData.error) {
         errorMessage = errorData.error;
       } else if (errorData.errors) {

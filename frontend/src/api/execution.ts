@@ -92,3 +92,7 @@ export async function sendExecutionReport(id: string, email: string) {
 export async function cancelExecution(id: string) {
   return apiFetch(`/executions/${id}/cancel/`, { method: "POST" });
 }
+
+export async function deleteExecution(id: string) {
+  return apiFetch(`/executions/${id}/`, { method: "DELETE" });
+}

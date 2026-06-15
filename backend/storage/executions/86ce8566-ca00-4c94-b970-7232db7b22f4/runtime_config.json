@@ -1,0 +1,47 @@
+{
+  "execution_id": "86ce8566-ca00-4c94-b970-7232db7b22f4",
+  "etl_id": "5df8ed80-c5a2-46bd-ae6c-1dd659e32fc1",
+  "work_directory": "C:\\Users\\ghali\\PycharmProjects\\PythonProject\\etl-plateform-pfe\\backend\\storage\\executions\\86ce8566-ca00-4c94-b970-7232db7b22f4",
+  "outputs": {
+    "directory": "C:\\Users\\ghali\\PycharmProjects\\PythonProject\\etl-plateform-pfe\\backend\\storage\\executions\\86ce8566-ca00-4c94-b970-7232db7b22f4\\outputs",
+    "deleted": "C:\\Users\\ghali\\PycharmProjects\\PythonProject\\etl-plateform-pfe\\backend\\storage\\executions\\86ce8566-ca00-4c94-b970-7232db7b22f4\\deleted",
+    "archive": "C:\\Users\\ghali\\PycharmProjects\\PythonProject\\etl-plateform-pfe\\backend\\storage\\executions\\86ce8566-ca00-4c94-b970-7232db7b22f4\\archive"
+  },
+  "config": {
+    "currency": "TND",
+    "logs_dir": "C:/Users/ghali/Downloads/sample_desktop_data/sample_data/logs",
+    "vat_rate": 0.19,
+    "output_report": "C:/Users/ghali/Downloads/sample_desktop_data/sample_data/ouutput/output.xlsx",
+    "invoices_excel": "C:/Users/ghali/Downloads/sample_desktop_data/sample_data/invoices.xlsx",
+    "reference_date": "2026-06-13",
+    "amount_tolerance": "2026-05-31",
+    "suppliers_folder": {
+      "path": "C:\\Users\\ghali\\PycharmProjects\\PythonProject\\etl-plateform-pfe\\backend\\storage\\executions\\86ce8566-ca00-4c94-b970-7232db7b22f4\\suppliers",
+      "file1": "suppliers_*.xlsx",
+      "file2": "blacklist_*.xlsx",
+      "file3": "-",
+      "check_mode": "both",
+      "files number": 2
+    },
+    "rejected_invoices": "C:/Users/ghali/Downloads/sample_desktop_data/sample_data/ouutput/rejected.xlsx",
+    "payment_overdue_days": "2026-05-30",
+    "purchase_orders_excel": "C:/Users/ghali/Downloads/sample_desktop_data/sample_data/purchase_orders.xlsx"
+  },
+  "config_overrides": {
+    "logs_dir": "C:/Users/ghali/Downloads/sample_desktop_data/sample_data/logs",
+    "output_report": "C:/Users/ghali/Downloads/sample_desktop_data/sample_data/ouutput/output.xlsx",
+    "invoices_excel": "C:/Users/ghali/Downloads/sample_desktop_data/sample_data/invoices.xlsx",
+    "amount_tolerance": "2026-05-31",
+    "suppliers_folder": {
+      "path": "C:/Users/ghali/Downloads/sample_desktop_data/sample_data/suppliers",
+      "file1": "suppliers_*.xlsx",
+      "file2": "blacklist_*.xlsx",
+      "file3": "-",
+      "check_mode": "both",
+      "files number": 2
+    },
+    "rejected_invoices": "C:/Users/ghali/Downloads/sample_desktop_data/sample_data/ouutput/rejected.xlsx",
+    "payment_overdue_days": "2026-05-30",
+    "purchase_orders_excel": "C:/Users/ghali/Downloads/sample_desktop_data/sample_data/purchase_orders.xlsx"
+  }
+}

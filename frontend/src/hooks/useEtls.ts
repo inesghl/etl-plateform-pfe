@@ -40,6 +40,8 @@ export function useEtls() {
       return result;
     } catch (e: any) {
       setError(e.message || "Validation failed");
+      // Refresh even on failure so validation_errors on the card update
+      await loadEtls();
       throw e;
     }
   }

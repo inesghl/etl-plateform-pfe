@@ -195,29 +195,27 @@ def looks_like_path(value: Any) -> bool:
         or v.endswith(("/", "\\"))
     ):
         return True
-    # Simple folder-like names without separators (e.g. "outputs", "logs", "deleted")
-    # These are relative folder references — include them so users can classify them
-    if v and not v.startswith("{") and "/" not in v and "\\" not in v:
-        # Only flag as path if value looks like a folder/file name (no spaces, not a number)
-        if _NUM_RE.match(v):
-            return False
-        if v.lower() in BOOL_VALUES:
-            return False
-        if " " not in v and len(v) <= 60:
-            return True
+    # No separator: only match filenames with extensions (e.g. "script.py", "config.json")
+    # Exclude ISO dates, numbers, booleans, and plain words without a dot
+    if _ISO_DATE_RE.match(v):
+        return False
+    if _NUM_RE.match(v):
+        return False
+    if v.lower() in BOOL_VALUES:
+        return False
+    if "." in v and not v.startswith(".") and " " not in v and len(v) <= 260:
+        return True
     return False
 
 
+# AFTER — use infer_field_type so date/number/boolean keys are excluded:
 def get_path_like_keys(config: dict) -> dict[str, str]:
-    """
-    Walk config and return { key: display_string } for every path-like value.
-    Folder-blocks are surfaced by their top-level key with display = folder path.
-    """
     result: dict[str, str] = {}
     for k, v in config.items():
-        if is_folder_block(v):
+        ft = infer_field_type(k, v)
+        if ft == "folder_block":
             result[k] = _fb_path(v) or "<folder block>"
-        elif looks_like_path(v):
+        elif ft == "path":
             result[k] = str(v)
     return result
 

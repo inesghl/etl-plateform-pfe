@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv(encoding='utf-8')
-
+load_dotenv(dotenv_path=".env", encoding="utf-8")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent

@@ -15,7 +15,7 @@ from ..accounts.permissions import IsAdmin, IsAdminOrReadOnly
 from ..accounts.models import UserGroup, User
 from .models import ETL
 from .serializers import ETLSerializer
-from ..common.path_utils import get_path_like_keys, looks_like_path
+from ..common.path_utils import get_path_like_keys
 
 EXCLUDED_DIRS = {'.venv', 'venv', '__pycache__', '.git', 'node_modules', '.idea', '.vscode', '.tox'}
 CONFIG_EXTENSIONS = {'.json', '.yaml', '.yml', '.toml', '.ini', '.cfg'}
@@ -217,6 +217,8 @@ class ETLViewSet(viewsets.ModelViewSet):
         Update editable ETL metadata. Optionally re-upload a new ZIP file.
         If a new zip_file is provided, the old extraction is replaced and
         paths are re-resolved (entry point, config, requirements).
+        If only metadata/path fields change (no new ZIP), the resolved paths
+        are re-resolved against the existing extraction.
         """
         etl: ETL = self.get_object()
         allowed_fields = {
@@ -230,7 +232,9 @@ class ETLViewSet(viewsets.ModelViewSet):
         serializer.save()
 
         zip_file = request.FILES.get("zip_file")
+
         if zip_file:
+            # ── New ZIP uploaded: replace extraction and re-resolve everything ──
             _, ext = os.path.splitext(zip_file.name)
             if ext.lower() != ".zip":
                 return Response(
@@ -267,9 +271,15 @@ class ETLViewSet(viewsets.ModelViewSet):
                 )
 
             etl.extracted_path = str(extracted_root)
-
-            # Reset resolved paths and validation state
             etl.is_validated = False
+            etl.is_active = False
+            # New ZIP may have different requirements — force venv rebuild on next run
+            if etl.shared_venv_path:
+                old_venv = Path(etl.shared_venv_path)
+                if old_venv.exists():
+                    shutil.rmtree(old_venv, ignore_errors=True)
+            etl.shared_venv_path = ""
+            etl.deps_installed_at = None
             etl.resolved_entry_point = ""
             etl.resolved_config_file = ""
             etl.resolved_requirements = ""
@@ -303,10 +313,43 @@ class ETLViewSet(viewsets.ModelViewSet):
 
             etl.validation_errors = warnings
             etl.save(update_fields=[
-                "extracted_path", "is_validated", "validation_errors",
+                "extracted_path", "is_validated", "is_active", "validation_errors",
+                "shared_venv_path", "deps_installed_at",
                 "resolved_entry_point", "resolved_config_file",
                 "resolved_requirements", "config",
             ])
+
+        else:
+            # ── No new ZIP: check what changed and act accordingly ──
+            force_rebuild = request.data.get("force_venv_rebuild") in (True, "true", "True", "1")
+            path_fields_changed = any(
+                k in data for k in ('entry_point_path', 'config_file_path', 'requirements_path')
+            )
+            needs_revalidation = path_fields_changed or force_rebuild
+            needs_venv_rebuild = force_rebuild or 'requirements_path' in data
+
+            if needs_revalidation and (etl.is_validated or etl.is_active):
+                etl.is_validated = False
+                etl.is_active = False
+                update_fields = ["is_validated", "is_active"]
+
+                if needs_venv_rebuild and etl.shared_venv_path:
+                    old_venv = Path(etl.shared_venv_path)
+                    if old_venv.exists():
+                        shutil.rmtree(old_venv, ignore_errors=True)
+                    etl.shared_venv_path = ""
+                    etl.deps_installed_at = None
+                    update_fields += ["shared_venv_path", "deps_installed_at"]
+
+                etl.save(update_fields=update_fields)
+            elif force_rebuild and etl.shared_venv_path:
+                # Even if not currently validated/active, clear venv if explicitly requested
+                old_venv = Path(etl.shared_venv_path)
+                if old_venv.exists():
+                    shutil.rmtree(old_venv, ignore_errors=True)
+                etl.shared_venv_path = ""
+                etl.deps_installed_at = None
+                etl.save(update_fields=["shared_venv_path", "deps_installed_at"])
 
         return Response(ETLSerializer(etl, context={'request': request}).data)
 

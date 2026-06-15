@@ -3,7 +3,7 @@ import { Etl } from "../../types/etl";
 import { Execution, OutputDelivery } from "../../types/execution";
 import { Button } from "../common/Button";
 import { apiFetch } from "../../api/api";
-import { prepareExecution, updateExecutionConfig } from "../../api/execution";
+import { prepareExecution, updateExecutionConfig, deleteExecution } from "../../api/execution";
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -205,6 +205,14 @@ function LaunchModal({ etl, onClose, onDone, onCreateExecution, onLaunch }: Prop
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [activePreviewTab, setActivePreviewTab] = useState<"sample" | "stats">("sample");
 
+  // Close modal and delete the execution if it was never launched
+  async function handleClose() {
+    if (execution && ["PENDING", "VALIDATED"].includes(execution.status)) {
+      try { await deleteExecution(execution.id); } catch { /* silent */ }
+    }
+    onClose();
+  }
+
   // Auto-refresh while running
   useEffect(() => {
     if (!execution || !["PENDING", "INSTALLING_DEPS", "RUNNING"].includes(execution.status)) return;
@@ -349,7 +357,7 @@ function LaunchModal({ etl, onClose, onDone, onCreateExecution, onLaunch }: Prop
   if (step === "check" && checkResults) {
     return (
       <ModalShell
-        onClose={onClose} title="Path check"
+        onClose={handleClose} title="Path check"
         subtitle={execution?.execution_label || etl.name}
         footer={
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
@@ -379,7 +387,7 @@ function LaunchModal({ etl, onClose, onDone, onCreateExecution, onLaunch }: Prop
     const keys = Object.keys(prepareData.path_like_keys);
     return (
       <ModalShell
-        onClose={onClose} title="Classify paths"
+        onClose={handleClose} title="Classify paths"
         subtitle={`${keys.length} path${keys.length !== 1 ? "s" : ""} detected in config`}
         footer={
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
@@ -448,7 +456,7 @@ function LaunchModal({ etl, onClose, onDone, onCreateExecution, onLaunch }: Prop
 
     return (
       <ModalShell
-        onClose={onClose} title="Configure run"
+        onClose={handleClose} title="Configure run"
         subtitle={prepareData.config_file_path ? `Config: ${prepareData.config_file_path}` : etl.name}
         footer={
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
@@ -532,10 +540,10 @@ function LaunchModal({ etl, onClose, onDone, onCreateExecution, onLaunch }: Prop
   // ── LABEL ─────────────────────────────────────────────────────────
   return (
     <ModalShell
-      onClose={onClose} title="Launch ETL" subtitle={`${etl.name} v${etl.version}`}
+      onClose={handleClose} title="Launch ETL" subtitle={`${etl.name} v${etl.version}`}
       footer={
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
-          <GhostBtn onClick={onClose}>Cancel</GhostBtn>
+          <GhostBtn onClick={handleClose}>Cancel</GhostBtn>
           <Button disabled={loading || !label.trim()} onClick={handleCreateExecution}>
             {loading ? "Creating…" : "Next →"}
           </Button>

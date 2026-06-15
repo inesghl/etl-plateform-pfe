@@ -243,8 +243,12 @@ function EditEtlModal({ etl, onClose, onSaved }: {
   const [requirementsPath, setRequirementsPath] = useState(etl.requirements_path);
   const [pythonVersion, setPythonVersion] = useState(etl.python_version);
   const [zipFile, setZipFile] = useState<File | null>(null);
+  const [forceRebuild, setForceRebuild] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  const requirementsChanged = requirementsPath.trim() !== (etl.requirements_path ?? "").trim();
+  const venvWillRebuild = !!zipFile || requirementsChanged || forceRebuild;
 
   async function handleSave() {
     try {
@@ -259,6 +263,7 @@ function EditEtlModal({ etl, onClose, onSaved }: {
         fd.append("requirements_path", requirementsPath.trim());
         fd.append("python_version", pythonVersion.trim());
         fd.append("zip_file", zipFile);
+        if (forceRebuild) fd.append("force_venv_rebuild", "true");
         await editEtl(etl.id, fd);
       } else {
         await editEtl(etl.id, {
@@ -267,6 +272,7 @@ function EditEtlModal({ etl, onClose, onSaved }: {
           config_file_path: configFilePath.trim(),
           requirements_path: requirementsPath.trim(),
           python_version: pythonVersion.trim(),
+          ...(forceRebuild ? { force_venv_rebuild: true } : {}),
         });
       }
       onSaved();
@@ -304,6 +310,16 @@ function EditEtlModal({ etl, onClose, onSaved }: {
         <Field label="Requirements path">
           <input value={requirementsPath} onChange={e => setRequirementsPath(e.target.value)}
             style={inputStyle} placeholder="e.g. requirements.txt" />
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={forceRebuild}
+              onChange={e => setForceRebuild(e.target.checked)}
+            />
+            <span style={{ fontSize: 12, color: T.textMid }}>
+              Force venv rebuild — I updated the requirements file content
+            </span>
+          </label>
         </Field>
 
         {/* ZIP replacement */}
@@ -328,6 +344,24 @@ function EditEtlModal({ etl, onClose, onSaved }: {
             </div>
           )}
         </div>
+
+        {venvWillRebuild && (
+          <div style={{
+            padding: "10px 12px", borderRadius: T.r,
+            background: T.warnBg, border: `1px solid ${T.warnBorder}`,
+            fontSize: 12, color: T.warn,
+          }}>
+            ⚠ The virtual environment will be <strong>rebuilt</strong> on next run
+            {zipFile && requirementsChanged
+              ? " (new ZIP + requirements path changed)."
+              : zipFile
+              ? " (new ZIP uploaded — dependencies may have changed)."
+              : requirementsChanged
+              ? " (requirements path changed)."
+              : " (manually requested — requirements file content was updated)."}
+            {" "}Re-validation will also be required.
+          </div>
+        )}
 
         {err && <div style={{ fontSize: 12, color: T.danger }}>{err}</div>}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>

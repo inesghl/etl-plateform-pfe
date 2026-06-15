@@ -1,0 +1,19 @@
+{
+  "invoices_excel": "C:\\Users\\ghali\\Downloads\\sample_desktop_data\\sample_data\\invoices.xlsx",
+  "purchase_orders_excel": "C:\\Users\\ghali\\Downloads\\sample_desktop_data\\sample_data\\purchase_orders.xlsx",
+  "suppliers_folder": {
+    "path": "C:\\Users\\ghali\\Downloads\\sample_desktop_data\\sample_data\\suppliers",
+    "file1": "suppliers_*.xlsx",
+    "file2": "blacklist_*.xlsx",
+    "file3": "-",
+    "files number": 2
+  },
+  "output_report": "C:\\Users\\ghali\\Downloads\\sample_desktop_data\\sample_data\\ouutput\\output.xlsx",
+  "rejected_invoices": "C:\\Users\\ghali\\Downloads\\sample_desktop_data\\sample_data\\ouutput\\rejected.xlsx",
+  "logs_dir": "C:\\Users\\ghali\\Downloads\\sample_desktop_data\\sample_data\\logs",
+  "currency": "TND",
+  "vat_rate": 0.19,
+  "amount_tolerance": 5.0,
+  "payment_overdue_days": 30,
+  "reference_date": "2026-06-13"
+}
