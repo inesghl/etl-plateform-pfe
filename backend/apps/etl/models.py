@@ -18,7 +18,7 @@ class ETL(models.Model):
     config_file_path = models.CharField(max_length=500, blank=True)
     requirements_path = models.CharField(max_length=500, blank=True)
     python_version = models.CharField(max_length=20, blank=True)
-
+    #absolute path
     resolved_entry_point = models.CharField(max_length=1000, blank=True)
     resolved_config_file = models.CharField(max_length=1000, blank=True)
     resolved_requirements = models.CharField(max_length=1000, blank=True)

@@ -29,6 +29,23 @@ from ..common.path_utils import (
 )
 
 
+def _kill_process_tree(pid: int) -> None:
+    """Kill a process and all its children. Used to actually stop a running
+    ETL script when the user cancels — the stored pid is the shell (cmd/bash)
+    that spawned the script, so we must kill the whole tree, not just it."""
+    import subprocess as sp
+    try:
+        if os.name == "nt":
+            sp.run(["taskkill", "/F", "/T", "/PID", str(pid)],
+                   capture_output=True, timeout=10)
+        else:
+            import signal
+            os.killpg(os.getpgid(pid), signal.SIGKILL)
+    except Exception as e:
+        import logging
+        logging.getLogger("execution").warning("Failed to kill process %s: %s", pid, e)
+
+
 def _notify_group_of_launch(execution):
     """Tell group members + individually allowed users that someone launched
     this shared execution. The launcher is excluded (no self-notification)."""
@@ -261,6 +278,36 @@ class ExecutionViewSet(viewsets.ModelViewSet):
             _notify_group_of_launch(execution)
 
         execution.refresh_from_db()
+        return Response(ExecutionSerializer(execution).data)
+
+    # ── cancel ────────────────────────────────────────────────────────
+
+    @action(detail=True, methods=["post"])
+    def cancel(self, request, pk=None):
+        execution: Execution = self.get_object()
+
+        if execution.status in ("SUCCESS", "FAILED", "CANCELLED"):
+            return Response(
+                {"detail": f"Cannot cancel — execution is already {execution.status}."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Not yet launched — no process to kill, just mark cancelled
+        if execution.status in ("PENDING", "VALIDATED"):
+            execution.status = "CANCELLED"
+            execution.error_message = "Cancelled by user."
+            execution.save(update_fields=["status", "error_message"])
+            return Response(ExecutionSerializer(execution).data)
+
+        # INSTALLING_DEPS or RUNNING — flag it and kill the OS process if known
+        execution.cancel_requested = True
+        execution.status = "CANCELLED"
+        execution.error_message = "Cancelled by user."
+        execution.save(update_fields=["cancel_requested", "status", "error_message"])
+
+        if execution.process_pid:
+            _kill_process_tree(execution.process_pid)
+
         return Response(ExecutionSerializer(execution).data)
 
     # ── send_report ───────────────────────────────────────────────────

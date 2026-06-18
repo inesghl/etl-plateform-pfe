@@ -91,6 +91,10 @@ class Execution(models.Model):
     dependencies_installed = models.BooleanField(default=False)
     dependencies_log = models.TextField(blank=True)
 
+    # Process control — set while the script subprocess is alive, used by cancel
+    process_pid = models.IntegerField(null=True, blank=True)
+    cancel_requested = models.BooleanField(default=False)
+
     class Meta:
         app_label = 'execution'
         db_table = 'executions'

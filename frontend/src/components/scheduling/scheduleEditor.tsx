@@ -261,6 +261,7 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
 
   const pendingRequests = requests.filter(r => r.status === "pending");
   const myRequest = requests.find(r => r.status === "pending");
+  const someoneElseRequested = pendingRequests.length > 0 && !myRequest;
 
   const panelProps = {
     requests: pendingRequests,
@@ -295,6 +296,10 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
                 {myRequest.frequency} at {myRequest.time_of_day.slice(0, 5)}
                 {myRequest.note ? ` · "${myRequest.note}"` : ""}
               </div>
+            </div>
+          ) : someoneElseRequested ? (
+            <div style={{ fontSize: 12, color: "#d97706" }}>
+              ⏳ A schedule request is already pending admin review for this ETL.
             </div>
           ) : showRequestForm ? (
             <div style={{ fontSize: 13 }}>

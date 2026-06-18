@@ -55,10 +55,16 @@ class ETLScheduleViewSet(viewsets.ModelViewSet):
         if getattr(user, "is_admin", False):
             return base_qs.all().order_by("-created_at")
 
-        # Regular users: can SEE schedules for ETLs assigned to their groups
-        # (read-only — enforced in create/update/destroy/toggle below)
+        # Regular users: see schedules for ETLs they can access
+        # (mirrors the same visibility logic as ETLViewSet.get_queryset)
+        user_group_ids = list(user.user_groups.values_list("id", flat=True))
         return base_qs.filter(
-            Q(etl__allowed_groups__members=user)
+            etl__is_active=True,
+            etl__is_validated=True,
+        ).filter(
+            Q(etl__allowed_groups__isnull=True, etl__allowed_users__isnull=True)
+            | Q(etl__allowed_groups__id__in=user_group_ids)
+            | Q(etl__allowed_users=user)
         ).distinct().order_by("-created_at")
 
     def get_serializer_context(self):
@@ -173,26 +179,35 @@ class ScheduleRequestViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if getattr(user, "is_admin", False):
-            # Admin sees ALL requests (most useful: pending first)
             return ScheduleRequest.objects.select_related(
                 "etl", "requested_by", "reviewed_by"
             ).order_by("status", "-created_at")
-        # Regular users see only their own
+        # Regular users see:
+        #  - their own requests (any status)
+        #  - pending requests from others for ETLs they can access
+        #    (so they know a request is already in flight)
+        user_group_ids = list(user.user_groups.values_list("id", flat=True))
+        accessible_etl_filter = (
+            Q(etl__allowed_groups__isnull=True, etl__allowed_users__isnull=True)
+            | Q(etl__allowed_groups__id__in=user_group_ids)
+            | Q(etl__allowed_users=user)
+        )
         return ScheduleRequest.objects.filter(
-            requested_by=user
-        ).select_related("etl").order_by("-created_at")
+            Q(requested_by=user) |
+            Q(status="pending") & accessible_etl_filter
+        ).select_related("etl", "requested_by").distinct().order_by("-created_at")
 
     def perform_create(self, serializer):
         etl = serializer.validated_data["etl"]
 
-        # Prevent duplicate pending requests for the same ETL by the same user
+        # Block if ANY pending request exists for this ETL — one at a time, from anyone
         existing = ScheduleRequest.objects.filter(
-            etl=etl, requested_by=self.request.user, status="pending"
+            etl=etl, status="pending"
         ).first()
         if existing:
             from rest_framework.exceptions import ValidationError
             raise ValidationError(
-                {"detail": "You already have a pending schedule request for this ETL."}
+                {"detail": "A schedule request is already pending for this ETL. Wait for it to be reviewed."}
             )
 
         req = serializer.save(requested_by=self.request.user)

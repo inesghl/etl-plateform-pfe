@@ -5,7 +5,7 @@ import { Badge } from "../common/Badge";
 import { Button } from "../common/Button";
 import { STATUS_COLORS } from "../../utils/constants";
 import { apiFetch } from "../../api/api";
-import { sendExecutionReport } from "../../api/execution";
+import { sendExecutionReport, cancelExecution } from "../../api/execution";
 import { ScheduledExecutionBanner } from "../scheduling/scheduleExecutionBanner";
 
 type Props = {
@@ -32,6 +32,9 @@ export function ExecutionCard({
   const [emailInput, setEmailInput] = useState(execution.notify_email || "");
   const [reportMsg, setReportMsg] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  const cancellable = ["PENDING", "VALIDATED", "INSTALLING_DEPS", "RUNNING"].includes(execution.status);
 
   // Auto-refresh while running
   useEffect(() => {
@@ -64,6 +67,19 @@ export function ExecutionCard({
       setReportMsg(`Failed: ${e.message}`);
     } finally {
       setSendingReport(false);
+    }
+  }
+
+  async function handleCancel() {
+    if (!confirm("Cancel this execution?")) return;
+    try {
+      setCancelling(true);
+      const updated = await cancelExecution(execution.id);
+      setExecution(updated);
+    } catch (e: any) {
+      console.error("Cancel failed:", e.message);
+    } finally {
+      setCancelling(false);
     }
   }
 
@@ -178,7 +194,13 @@ export function ExecutionCard({
             </Button>
           )}
 
-          {onDelete && (
+          {cancellable && (
+            <Button small variant="danger" onClick={handleCancel} disabled={cancelling}>
+              {cancelling ? "…" : "✕ Cancel"}
+            </Button>
+          )}
+
+          {onDelete && !cancellable && (
             <Button small variant="danger" onClick={handleDelete} disabled={deleting}>
               {deleting ? "…" : "Delete"}
             </Button>

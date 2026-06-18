@@ -534,6 +534,7 @@ def _run_script(
     etl: ETL,
     cfg_path: Path,
     work_dir: Path,
+    execution: Execution = None,
 ) -> Tuple[int, str, str]:
     entry = _resolve_entry_point(etl_code_dir, etl)
     print(f"[EXECUTE] Entry: {entry}  CWD: {work_dir}")
@@ -559,19 +560,35 @@ def _run_script(
         script_path.chmod(0o755)
         cmd = ["/bin/bash", str(script_path)]
 
-    r = subprocess.run(
+    proc = subprocess.Popen(
         cmd,
         cwd=str(work_dir),  # Script's CWD = work_dir; relative paths work from here
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
         text=True,
-        timeout=3600,
     )
+
+    if execution is not None:
+        execution.process_pid = proc.pid
+        execution.save(update_fields=["process_pid"])
+
+    try:
+        out, err = proc.communicate(timeout=3600)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        out, err = proc.communicate()
+        err += "\n[ENGINE] Script timed out after 3600s and was killed."
+
+    if execution is not None:
+        execution.process_pid = None
+        execution.save(update_fields=["process_pid"])
+
     try:
         script_path.unlink()
     except Exception:
         pass
 
-    return r.returncode, r.stdout, r.stderr
+    return proc.returncode, out, err
 
 
 # ─────────────────────────────────────────────────────────────
@@ -981,6 +998,15 @@ def run_execution(execution: Execution) -> None:
             execution.dependencies_installed = True
             execution.save(update_fields=["stdout_log", "dependencies_installed"])
 
+        # Cancelled while installing dependencies — stop before launching the script
+        execution.refresh_from_db(fields=["status", "cancel_requested"])
+        if execution.cancel_requested or execution.status == "CANCELLED":
+            execution.status = "CANCELLED"
+            execution.error_message = "Cancelled by user."
+            execution.completed_at = timezone.now()
+            execution.save(update_fields=["status", "error_message", "completed_at"])
+            return
+
         execution.venv_path = str(venv_dir)
         execution.status = "RUNNING"
         execution.save(update_fields=["venv_path", "status"])
@@ -991,7 +1017,8 @@ def run_execution(execution: Execution) -> None:
         execution.save(update_fields=["stdout_log"])
 
         rc, out, err = _run_script(
-            venv_dir, activate_script, etl_code_dir, etl, cfg_path, work_dir
+            venv_dir, activate_script, etl_code_dir, etl, cfg_path, work_dir,
+            execution=execution,
         )
 
         execution.return_code = rc
@@ -1006,19 +1033,26 @@ def run_execution(execution: Execution) -> None:
         execution.stdout_log += f"\nCollected {output_count} output file(s).\n"
 
         # ── 8. Determine status ───────────────────────────────────────
-        # BUG D fix: checks execution.output_files.exists() (DB records) first.
-        final_status, error_msg = _determine_status(
-            rc, out, err, work_dir,
-            execution=execution,
-        )
-        execution.status = final_status
-        execution.error_message = error_msg
+        # If the user cancelled while the script was running, keep CANCELLED —
+        # don't let the natural outcome (often FAILED, since we killed it) overwrite it.
+        execution.refresh_from_db(fields=["status", "cancel_requested"])
+        if execution.cancel_requested or execution.status == "CANCELLED":
+            execution.status = "CANCELLED"
+            execution.error_message = "Cancelled by user."
+        else:
+            # BUG D fix: checks execution.output_files.exists() (DB records) first.
+            final_status, error_msg = _determine_status(
+                rc, out, err, work_dir,
+                execution=execution,
+            )
+            execution.status = final_status
+            execution.error_message = error_msg
 
         execution.save(update_fields=[
             "completed_at", "status", "return_code",
             "stdout_log", "stderr_log", "error_message",
         ])
-        print(f"[EXEC] Finished: {final_status} (rc={rc}, outputs={output_count})")
+        print(f"[EXEC] Finished: {execution.status} (rc={rc}, outputs={output_count})")
 
     except Exception as exc:
         print(f"[EXEC] Unhandled error: {exc}")
