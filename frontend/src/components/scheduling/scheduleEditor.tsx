@@ -18,6 +18,7 @@ type Props = {
   etlId: string;
   etlName: string;
   userEmail: string;
+  currentUserId?: number;
   isAdmin: boolean;
 };
 
@@ -79,7 +80,7 @@ function freqLabel(s: ETLSchedule): string {
   return "Daily";
 }
 
-export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
+export function ScheduleEditor({ etlId, etlName, userEmail, currentUserId, isAdmin }: Props) {
   const [schedule, setSchedule] = useState<ETLSchedule | null>(null);
   const [requests, setRequests] = useState<ScheduleRequest[]>([]);
   const [loading, setLoading] = useState(true);
@@ -221,11 +222,14 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
 
   async function handleApprove(reqId: string) {
     try {
-      const { schedule: newSchedule, request: updated } =
+      const { schedule: newSchedule } =
         await approveScheduleRequest(reqId, approveScope, approveEmail, approveNote);
       setSchedule(newSchedule);
       populate(newSchedule);
-      setRequests(prev => prev.map(r => (r.id === reqId ? updated : r)));
+      // Approving one request auto-rejects every other pending request for
+      // this ETL on the backend — refetch instead of patching just this one,
+      // so those disappear from the pending panel immediately.
+      setRequests(await fetchRequestsForEtl(etlId));
       setApprovingId(null);
       setApproveNote("");
       setApproveEmail("");
@@ -260,8 +264,11 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
   }
 
   const pendingRequests = requests.filter(r => r.status === "pending");
-  const myRequest = requests.find(r => r.status === "pending");
-  const someoneElseRequested = pendingRequests.length > 0 && !myRequest;
+  // IMPORTANT: must match on requested_by, not just "any pending request" —
+  // each user requests independently, so another user's pending request is
+  // never "mine" even though it shows up in this same list for context.
+  const myRequest = requests.find(r => r.status === "pending" && r.requested_by === currentUserId);
+  const otherPendingCount = pendingRequests.filter(r => r.requested_by !== currentUserId).length;
 
   const panelProps = {
     requests: pendingRequests,
@@ -296,10 +303,6 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
                 {myRequest.frequency} at {myRequest.time_of_day.slice(0, 5)}
                 {myRequest.note ? ` · "${myRequest.note}"` : ""}
               </div>
-            </div>
-          ) : someoneElseRequested ? (
-            <div style={{ fontSize: 12, color: "#d97706" }}>
-              ⏳ A schedule request is already pending admin review for this ETL.
             </div>
           ) : showRequestForm ? (
             <div style={{ fontSize: 13 }}>
@@ -365,11 +368,18 @@ export function ScheduleEditor({ etlId, etlName, userEmail, isAdmin }: Props) {
               </div>
             </div>
           ) : (
-            <div style={{ ...S.row, justifyContent: "space-between" }}>
-              <span style={{ color: "#94a3b8", fontSize: 12 }}>No schedule — need automation?</span>
-              <button style={S.btn("primary")} onClick={() => setShowRequestForm(true)}>
-                📅 Request schedule
-              </button>
+            <div>
+              <div style={{ ...S.row, justifyContent: "space-between" }}>
+                <span style={{ color: "#94a3b8", fontSize: 12 }}>No schedule — need automation?</span>
+                <button style={S.btn("primary")} onClick={() => setShowRequestForm(true)}>
+                  📅 Request schedule
+                </button>
+              </div>
+              {otherPendingCount > 0 && (
+                <div style={{ marginTop: 6, fontSize: 11, color: "#94a3b8" }}>
+                  {otherPendingCount} other request{otherPendingCount !== 1 ? "s" : ""} from teammates pending review — you can still submit your own.
+                </div>
+              )}
             </div>
           )}
         </div>

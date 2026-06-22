@@ -200,14 +200,15 @@ class ScheduleRequestViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         etl = serializer.validated_data["etl"]
 
-        # Block if ANY pending request exists for this ETL — one at a time, from anyone
+        # Each user with access to this ETL can request independently —
+        # only block a duplicate pending request from the SAME user.
         existing = ScheduleRequest.objects.filter(
-            etl=etl, status="pending"
+            etl=etl, requested_by=self.request.user, status="pending"
         ).first()
         if existing:
             from rest_framework.exceptions import ValidationError
             raise ValidationError(
-                {"detail": "A schedule request is already pending for this ETL. Wait for it to be reviewed."}
+                {"detail": "You already have a pending schedule request for this ETL."}
             )
 
         req = serializer.save(requested_by=self.request.user)
@@ -323,6 +324,32 @@ class ScheduleRequestViewSet(viewsets.ModelViewSet):
         except Exception as e:
             import logging
             logging.getLogger("scheduling").warning("Requester notify failed: %s", e)
+
+        # One approval becomes THE schedule for the whole ETL — auto-reject
+        # every other still-pending request for it so they don't dangle,
+        # and let those requesters know why.
+        other_pending = ScheduleRequest.objects.filter(
+            etl=req.etl, status="pending"
+        ).exclude(id=req.id)
+        for other in other_pending:
+            other.status = "rejected"
+            other.admin_note = f"Another schedule request for this ETL was approved by {request.user.username}."
+            other.reviewed_by = request.user
+            other.reviewed_at = timezone.now()
+            other.save()
+            try:
+                from ..notification.models import Notification
+                Notification.objects.create(
+                    user=other.requested_by,
+                    title=f"ℹ️ Schedule request closed: {other.etl.name}",
+                    message=(
+                        f"Another user's schedule request for \"{other.etl.name}\" was approved instead. "
+                        f"The ETL now has an active schedule."
+                    ),
+                    notification_type="info",
+                )
+            except Exception:
+                pass
 
         return Response({
             "detail": "Request approved. Schedule created.",

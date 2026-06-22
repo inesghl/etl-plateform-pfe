@@ -69,6 +69,18 @@ class UserViewSet(viewsets.ModelViewSet):
         return UserSerializer
 
     # ------------------------------------------------------------------
+    # Admin creating a user — return the FULL user object (with id,
+    # is_active, etc.), not the bare registration serializer's shape,
+    # otherwise the frontend can't act on the just-created user.
+    # ------------------------------------------------------------------
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(UserSerializer(user).data, status=status.HTTP_201_CREATED)
+
+    # ------------------------------------------------------------------
     # Public registration
     # ------------------------------------------------------------------
 

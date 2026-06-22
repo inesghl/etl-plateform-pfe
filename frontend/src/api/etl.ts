@@ -34,6 +34,10 @@ export async function activateEtl(id: string) {
   return apiFetch(`/etls/${id}/activate/`, { method: "POST" });
 }
 
+export async function deactivateEtl(id: string) {
+  return apiFetch(`/etls/${id}/deactivate/`, { method: "POST" });
+}
+
 export async function deleteEtl(id: string) {
   return apiFetch(`/etls/${id}/`, { method: "DELETE" });
 }

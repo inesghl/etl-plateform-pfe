@@ -13,6 +13,7 @@ type Props = {
   availableGroups?: UserGroup[];
   onValidate?: (id: string) => Promise<void>;
   onActivate?: (id: string) => Promise<void>;
+  onDeactivate?: (id: string) => Promise<void>;
   onLaunch?: (etl: Etl) => void;
   onRefresh?: () => void;
 };
@@ -24,6 +25,7 @@ export function EtlList({
   availableGroups = [],
   onValidate,
   onActivate,
+  onDeactivate,
   onLaunch,
   onRefresh,
 }: Props) {
@@ -94,6 +96,7 @@ export function EtlList({
           availableGroups={availableGroups}
           onValidate={onValidate}
           onActivate={onActivate}
+          onDeactivate={onDeactivate}
           onLaunch={onLaunch}
           onRefresh={onRefresh}
         />

@@ -367,6 +367,13 @@ class ETLViewSet(viewsets.ModelViewSet):
         group_ids = request.data.get("group_ids", [])
         new_groups = list(UserGroup.objects.filter(id__in=group_ids))
 
+        empty_groups = [g.name for g in new_groups if g.members.count() == 0]
+        if empty_groups:
+            return Response(
+                {"detail": f"Cannot assign empty group(s): {', '.join(empty_groups)}. Add members first."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         existing_ids = set(etl.allowed_groups.values_list('id', flat=True))
         newly_added = [g for g in new_groups if g.id not in existing_ids]
 
@@ -579,6 +586,19 @@ class ETLViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         etl.is_active = True
+        etl.save(update_fields=["is_active"])
+        return Response(ETLSerializer(etl, context={'request': request}).data)
+
+    # ── deactivate ────────────────────────────────────────────────
+
+    @action(detail=True, methods=["post"], permission_classes=[IsAuthenticated, IsAdmin])
+    def deactivate(self, request, pk=None):
+        """
+        Hide an active ETL from regular users without losing its validated
+        state — re-activating later doesn't require re-validation.
+        """
+        etl: ETL = self.get_object()
+        etl.is_active = False
         etl.save(update_fields=["is_active"])
         return Response(ETLSerializer(etl, context={'request': request}).data)
 

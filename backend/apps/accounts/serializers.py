@@ -31,8 +31,14 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         model = User
         fields = ['username', 'email', 'password', 'role']
 
+    def validate_password(self, value):
+        if len(value) < 8:
+            raise serializers.ValidationError('Password must be at least 8 characters.')
+        return value
+
     def create(self, validated_data):
-        return User.objects.create_user(**validated_data)
+        # New accounts start inactive — an admin must explicitly activate them.
+        return User.objects.create_user(**validated_data, is_active=False)
 
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):

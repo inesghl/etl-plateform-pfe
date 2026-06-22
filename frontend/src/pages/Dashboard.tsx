@@ -32,7 +32,7 @@ type Props = {
 };
 
 function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
-  const { etls, loading: etlLoading, error: etlError, loadEtls, upload, validate, activate, getConfig } = useEtls();
+  const { etls, loading: etlLoading, error: etlError, loadEtls, upload, validate, activate, deactivate, getConfig } = useEtls();
   const { executions, loadExecutions, create: createExecution, launch: launchExecution } = useExecutions();
   const { notifications, unreadCount, loadNotifications, markUnread, markAllRead, remove } = useNotifications();
 
@@ -223,6 +223,7 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
                 availableGroups={groups}
                 onValidate={validate}
                 onActivate={activate}
+                onDeactivate={deactivate}
                 onLaunch={setLaunchEtl}
                 onRefresh={handleRefreshAll}
               />
@@ -278,7 +279,7 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
                 Create groups, add members, then assign ETLs to groups from the ETL cards.
                 ETLs with no group assigned are visible to all users.
               </p>
-              <GroupManager />
+              <GroupManager onGroupsChanged={() => { fetchGroups().then(setGroups).catch(console.error); }} />
             </>
           )}
 

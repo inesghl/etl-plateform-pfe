@@ -23,7 +23,7 @@ const inputStyle: React.CSSProperties = {
   color: T.text, fontSize: 13, boxSizing: "border-box", outline: "none",
 };
 
-export function GroupManager() {
+export function GroupManager({ onGroupsChanged }: { onGroupsChanged?: () => void } = {}) {
   const [groups, setGroups] = useState<UserGroup[]>([]);
   const [allUsers, setAllUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +48,7 @@ export function GroupManager() {
       const updated = gs.find(g => g.id === activeGroup.id);
       setActiveGroup(updated ?? null);
     }
+    onGroupsChanged?.();
   }
 
   if (loading) return <div style={{ padding: 24, color: T.textMuted }}>Loading groups…</div>;

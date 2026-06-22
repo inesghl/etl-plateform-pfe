@@ -34,13 +34,14 @@ type Props = {
   availableGroups?: UserGroup[];
   onValidate?: (id: string) => Promise<void>;
   onActivate?: (id: string) => Promise<void>;
+  onDeactivate?: (id: string) => Promise<void>;
   onLaunch?: (etl: Etl) => void;
   onRefresh?: () => void;
 };
 
 export function EtlCard({
   etl, isAdmin, currentUser, availableGroups = [],
-  onValidate, onActivate, onLaunch, onRefresh,
+  onValidate, onActivate, onDeactivate, onLaunch, onRefresh,
 }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -48,11 +49,12 @@ export function EtlCard({
   const [showEdit, setShowEdit] = useState(false);
   const [showAssign, setShowAssign] = useState(false);
 
-  async function handle(action: "validate" | "activate") {
+  async function handle(action: "validate" | "activate" | "deactivate") {
     try {
       setBusy(action); setErr(null);
       if (action === "validate") await onValidate?.(etl.id);
-      else await onActivate?.(etl.id);
+      else if (action === "activate") await onActivate?.(etl.id);
+      else await onDeactivate?.(etl.id);
     } catch (e: any) { setErr(e.message); }
     finally { setBusy(null); }
   }
@@ -165,6 +167,7 @@ export function EtlCard({
   etlId={etl.id}
   etlName={etl.name}
   userEmail={currentUser?.email ?? ""}
+  currentUserId={currentUser?.id}
   isAdmin={isAdmin}
 />
           </div>
@@ -188,6 +191,11 @@ export function EtlCard({
             {isAdmin && etl.is_validated && !etl.is_active && (
               <Button small variant="success" disabled={!!busy} onClick={() => handle("activate")}>
                 {busy === "activate" ? "…" : "▶ Activate"}
+              </Button>
+            )}
+            {isAdmin && etl.is_active && (
+              <Button small variant="secondary" disabled={!!busy} onClick={() => handle("deactivate")}>
+                {busy === "deactivate" ? "…" : "⏸ Deactivate"}
               </Button>
             )}
             {isAdmin && (
@@ -460,23 +468,30 @@ function AssignGroupsModal({ etl, availableGroups, onClose, onSaved }: {
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 8 }}>
-            {availableGroups.map(g => (
-              <label key={g.id} style={{
-                display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
-                borderRadius: T.r, cursor: "pointer",
-                border: `1px solid ${selectedGroups.has(g.id) ? T.accentBorder : T.border}`,
-                background: selectedGroups.has(g.id) ? T.accentBg : "#fff",
-              }}>
-                <input type="checkbox" checked={selectedGroups.has(g.id)} onChange={() => toggleGroup(g.id)} />
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{g.name}</div>
-                  <div style={{ fontSize: 11, color: T.textMuted }}>
-                    {g.member_count} member{g.member_count !== 1 ? "s" : ""}
-                    {g.description ? ` · ${g.description}` : ""}
+            {availableGroups.map(g => {
+              const empty = g.member_count === 0;
+              return (
+                <label key={g.id} style={{
+                  display: "flex", alignItems: "center", gap: 10, padding: "10px 12px",
+                  borderRadius: T.r, cursor: empty ? "not-allowed" : "pointer",
+                  border: `1px solid ${selectedGroups.has(g.id) ? T.accentBorder : T.border}`,
+                  background: selectedGroups.has(g.id) ? T.accentBg : empty ? T.surface : "#fff",
+                  opacity: empty ? 0.6 : 1,
+                }}>
+                  <input
+                    type="checkbox" checked={selectedGroups.has(g.id)} disabled={empty}
+                    onChange={() => toggleGroup(g.id)}
+                  />
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{g.name}</div>
+                    <div style={{ fontSize: 11, color: empty ? T.danger : T.textMuted }}>
+                      {empty ? "No members — add members before assigning" : `${g.member_count} member${g.member_count !== 1 ? "s" : ""}`}
+                      {g.description ? ` · ${g.description}` : ""}
+                    </div>
                   </div>
-                </div>
-              </label>
-            ))}
+                </label>
+              );
+            })}
           </div>
         )
       )}

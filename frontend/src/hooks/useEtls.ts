@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 import { Etl } from "../types/etl";
-import { fetchEtls, uploadEtl, validateEtl, activateEtl, readEtlConfig } from "../api/etl";
+import { fetchEtls, uploadEtl, validateEtl, activateEtl, deactivateEtl, readEtlConfig } from "../api/etl";
 
 export function useEtls() {
   const [etls, setEtls] = useState<Etl[]>([]);
@@ -57,9 +57,20 @@ export function useEtls() {
     }
   }
 
+  async function deactivate(id: string) {
+    try {
+      setError(null);
+      await deactivateEtl(id);
+      await loadEtls();
+    } catch (e: any) {
+      setError(e.message || "Deactivation failed");
+      throw e;
+    }
+  }
+
   async function getConfig(id: string) {
     return readEtlConfig(id);
   }
 
-  return { etls, loading, error, loadEtls, upload, validate, activate, getConfig };
+  return { etls, loading, error, loadEtls, upload, validate, activate, deactivate, getConfig };
 }
