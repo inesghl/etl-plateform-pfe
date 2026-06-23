@@ -135,7 +135,7 @@ class ETLScheduleViewSet(viewsets.ModelViewSet):
 
         from django.utils import timezone
         from ..execution.models import Execution
-        from .scheduler import _send_schedule_notifications
+        from .scheduler import _notify_user_of_scheduled_execution
 
         now = timezone.localtime()
         etl = schedule.etl
@@ -150,7 +150,12 @@ class ETLScheduleViewSet(viewsets.ModelViewSet):
             ),
         )
 
-        _send_schedule_notifications(schedule, execution, now)
+        # This is a personal trigger — only the user who clicked it gets
+        # notified about it, not the whole group (it's their own execution).
+        try:
+            _notify_user_of_scheduled_execution(schedule, execution, request.user, now)
+        except Exception:
+            pass
 
         # Do NOT update last_triggered_at — that belongs to the automatic scheduler
         # Updating it here would confuse the double-fire guard

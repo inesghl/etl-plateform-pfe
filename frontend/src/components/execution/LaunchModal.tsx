@@ -3,7 +3,7 @@ import { Etl } from "../../types/etl";
 import { Execution, OutputDelivery } from "../../types/execution";
 import { Button } from "../common/Button";
 import { apiFetch } from "../../api/api";
-import { prepareExecution, updateExecutionConfig, deleteExecution } from "../../api/execution";
+import { prepareExecution, updateExecutionConfig, deleteExecution, cancelExecution } from "../../api/execution";
 
 // ─────────────────────────────────────────────────────────────
 // Types
@@ -70,6 +70,9 @@ type Props = {
   etl: Etl; onClose: () => void; onDone: () => void;
   onCreateExecution: (etlId: string, label: string) => Promise<any>;
   onLaunch: (executionId: string) => Promise<void>;
+  /** Resume an existing PENDING/VALIDATED execution (e.g. a scheduled run
+   *  the user is about to review) instead of creating a brand new one. */
+  resumeExecution?: Execution;
 };
 
 type Step = "label" | "config" | "classify" | "check" | "progress";
@@ -181,13 +184,17 @@ const inputStyle: React.CSSProperties = {
 // LaunchModal
 // ─────────────────────────────────────────────────────────────
 
-function LaunchModal({ etl, onClose, onDone, onCreateExecution, onLaunch }: Props) {
+function LaunchModal({ etl, onClose, onDone, onCreateExecution, onLaunch, resumeExecution }: Props) {
   const [label, setLabel] = useState(`${etl.name} — ${new Date().toLocaleDateString()}`);
-  const [step, setStep] = useState<Step>("label");
-  const [execution, setExecution] = useState<Execution | null>(null);
+  const [step, setStep] = useState<Step>(resumeExecution ? "config" : "label");
+  const [execution, setExecution] = useState<Execution | null>(resumeExecution ?? null);
   const [prepareData, setPrepareData] = useState<PrepareData | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(!!resumeExecution);
   const [err, setErr] = useState<string | null>(null);
+  const [cancellingExec, setCancellingExec] = useState(false);
+  // A resumed execution already existed before this modal opened — closing
+  // out of the wizard must NOT delete it, unlike a draft this modal created.
+  const isResumed = !!resumeExecution;
 
   // Config step state
   // For simple keys: string overrides
@@ -205,13 +212,40 @@ function LaunchModal({ etl, onClose, onDone, onCreateExecution, onLaunch }: Prop
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const [activePreviewTab, setActivePreviewTab] = useState<"sample" | "stats">("sample");
 
-  // Close modal and delete the execution if it was never launched
+  // Close modal and delete the execution if it was never launched — but
+  // never auto-delete a resumed (pre-existing) execution, e.g. a scheduled
+  // run the user is just reviewing; only drafts created by this modal.
   async function handleClose() {
-    if (execution && ["PENDING", "VALIDATED"].includes(execution.status)) {
+    if (!isResumed && execution && ["PENDING", "VALIDATED"].includes(execution.status)) {
       try { await deleteExecution(execution.id); } catch { /* silent */ }
     }
     onClose();
   }
+
+  // Resuming an existing execution — load its prepare data instead of
+  // going through the "create a new execution" step.
+  useEffect(() => {
+    if (!resumeExecution) return;
+    (async () => {
+      try {
+        setLoading(true); setErr(null);
+        const data: PrepareData = await prepareExecution(resumeExecution.id);
+        setPrepareData(data);
+        setOutputDelivery(data.output_delivery || "app");
+        setNotifyEmail(data.notify_email || "");
+        setClassifications(
+          Object.fromEntries(
+            Object.entries(data.path_classifications).map(([k, v]) => [k, v as Classification])
+          )
+        );
+      } catch (e: any) {
+        setErr(e.message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resumeExecution?.id]);
 
   // Auto-refresh while running
   useEffect(() => {
@@ -328,6 +362,18 @@ function LaunchModal({ etl, onClose, onDone, onCreateExecution, onLaunch }: Prop
     finally { setLoading(false); }
   }
 
+  // Cancel directly from the progress view — no need to leave the modal
+  async function handleCancelFromProgress() {
+    if (!execution) return;
+    if (!confirm("Cancel this execution?")) return;
+    try {
+      setCancellingExec(true); setErr(null);
+      const updated = await cancelExecution(execution.id);
+      setExecution(updated);
+    } catch (e: any) { setErr(e.message); }
+    finally { setCancellingExec(false); }
+  }
+
   async function handleRefreshCheck() {
     if (!execution) return;
     setCheckLoading(true);
@@ -338,12 +384,40 @@ function LaunchModal({ etl, onClose, onDone, onCreateExecution, onLaunch }: Prop
     finally { setCheckLoading(false); }
   }
 
+  // ── RESUMING (loading an existing execution's data) ────────────────
+  if (resumeExecution && step === "config" && !prepareData) {
+    return (
+      <ModalShell onClose={handleClose} title="Loading run…" subtitle={etl.name}>
+        <div style={{ padding: "30px 0", textAlign: "center", color: T.textMuted, fontSize: 13 }}>
+          {err ? <ErrorBox>{err}</ErrorBox> : "Loading configuration…"}
+        </div>
+      </ModalShell>
+    );
+  }
+
   // ── PROGRESS ──────────────────────────────────────────────────────
   if (step === "progress" && execution) {
+    // This is always the current user's own launch — they can always cancel it.
+    const cancellableNow = ["PENDING", "VALIDATED", "INSTALLING_DEPS", "RUNNING"].includes(execution.status);
     return (
       <ModalShell onClose={onClose} title="Running ETL" subtitle={execution.execution_label || etl.name}>
         <ExecutionProgress execution={execution} />
-        {["SUCCESS", "FAILED"].includes(execution.status) && (
+        {cancellableNow && (
+          <div style={{ marginTop: 16, textAlign: "center" }}>
+            <button
+              onClick={handleCancelFromProgress}
+              disabled={cancellingExec}
+              style={{
+                padding: "8px 16px", borderRadius: T.r, fontSize: 13, fontWeight: 600,
+                border: `1px solid ${T.dangerBorder}`, background: T.dangerBg,
+                color: T.danger, cursor: cancellingExec ? "not-allowed" : "pointer",
+              }}
+            >
+              {cancellingExec ? "Cancelling…" : "✕ Cancel execution"}
+            </button>
+          </div>
+        )}
+        {["SUCCESS", "FAILED", "CANCELLED"].includes(execution.status) && (
           <div style={{ marginTop: 20, textAlign: "center" }}>
             <Button onClick={() => { onDone(); onClose(); }}>Close & view results</Button>
           </div>

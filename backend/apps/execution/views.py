@@ -15,7 +15,6 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from ..accounts.permissions import IsAdmin
 from .models import Execution
 from ..etl.models import ETL
 from .services.execution_engine import run_execution
@@ -87,14 +86,30 @@ class ExecutionViewSet(viewsets.ModelViewSet):
         if hasattr(user, "is_admin") and user.is_admin:
             return Execution.objects.select_related("etl", "launched_by").all()
 
+        # A scheduler-created (launched_by=None) execution should be visible
+        # to whoever can see the ETL itself: public ETLs (no groups/users
+        # assigned) are visible to everyone, same rule as ETLViewSet and
+        # ETLScheduleViewSet — this was previously missing here, so a
+        # scheduled run for a public ETL was invisible to everyone but admin.
+        user_group_ids = list(user.user_groups.values_list("id", flat=True))
+        visible_unclaimed = Q(launched_by__isnull=True) & (
+            Q(etl__allowed_groups__isnull=True, etl__allowed_users__isnull=True)
+            | Q(etl__allowed_groups__id__in=user_group_ids)
+            | Q(etl__allowed_users=user)
+        )
+
         return (
             Execution.objects
             .select_related("etl", "launched_by")
             .filter(
-                Q(launched_by=user) |
-                Q(launched_by__isnull=True, etl__allowed_groups__members=user) |
-                Q(launched_by__isnull=True, etl__created_by=user)
+                Q(launched_by=user)
+                | visible_unclaimed
+                | Q(launched_by__isnull=True, etl__created_by=user)
             )
+            # A user's own soft-deleted executions stay hidden from THEM only —
+            # only ever set on rows they own, so this can't hide a teammate's
+            # shared pending run out from under them.
+            .exclude(hidden_by_user=True)
             .distinct()
             .order_by("-launched_at")
         )
@@ -117,6 +132,36 @@ class ExecutionViewSet(viewsets.ModelViewSet):
             "entry_point": etl.entry_point,
         }
         execution.save(update_fields=["work_dir", "runtime_config", "execution_config"])
+
+    def perform_destroy(self, instance: Execution):
+        """
+        Admin  → hard delete, always. Admin's "All Executions" view must
+                 keep full history regardless of what users do to their own.
+        Owner  → soft delete. The row is kept (hidden_by_user=True) so admin
+                 tracking is never affected by what a user clears from their
+                 own list.
+        Anyone
+        else   → forbidden. In particular an unclaimed (launched_by=None)
+                 scheduler/group execution can't be soft-deleted by a non-owner,
+                 since hidden_by_user is a single flag on a shared row — it
+                 would hide it for every other group member too. Use Cancel
+                 for that case instead.
+        """
+        from rest_framework.exceptions import PermissionDenied
+
+        user = self.request.user
+        is_admin = getattr(user, "is_admin", False)
+
+        if is_admin:
+            instance.delete()
+            return
+
+        if instance.launched_by_id == user.id:
+            instance.hidden_by_user = True
+            instance.save(update_fields=["hidden_by_user"])
+            return
+
+        raise PermissionDenied("You can only delete your own executions.")
 
     # ── prepare ───────────────────────────────────────────────────────
 
@@ -281,10 +326,19 @@ class ExecutionViewSet(viewsets.ModelViewSet):
         return Response(ExecutionSerializer(execution).data)
 
     # ── cancel ────────────────────────────────────────────────────────
+    # Admin can cancel anything (oversight). A user can cancel their own
+    # execution, or an unclaimed scheduler/group one nobody has launched yet
+    # (get_object() already enforced that they're allowed to see it).
 
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
         execution: Execution = self.get_object()
+        user = request.user
+        is_admin = getattr(user, "is_admin", False)
+
+        if not is_admin and execution.launched_by_id not in (None, user.id):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("You can only cancel your own executions.")
 
         if execution.status in ("SUCCESS", "FAILED", "CANCELLED"):
             return Response(

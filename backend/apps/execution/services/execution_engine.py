@@ -17,7 +17,6 @@ from pathlib import Path
 from typing import Tuple, Optional
 
 from django.conf import settings
-from django.core.mail import send_mail
 from django.utils import timezone
 
 from ..models import Execution
@@ -783,64 +782,10 @@ def _create_notification(execution: Execution, success: bool, output_count: int)
 
 
 # ─────────────────────────────────────────────────────────────
-# Email report
+# Email report — handled by notification.services.email_service.send_execution_report
+# (the same HTML+text report used by the manual "Send report" button), see
+# _handle_notifications() below.
 # ─────────────────────────────────────────────────────────────
-
-def _send_email_report(execution: Execution, recipient: str, output_count: int) -> None:
-    """Send a plain-text execution report email using Django's email backend."""
-    try:
-        etl_name = execution.etl.name
-        label = execution.execution_label or etl_name
-        exec_status = execution.status
-        duration = ""
-        if execution.started_at and execution.completed_at:
-            secs = (execution.completed_at - execution.started_at).total_seconds()
-            duration = f"{int(secs)} seconds"
-
-        import urllib.parse
-        base_url = getattr(settings, "FRONTEND_URL", "http://localhost:3000")
-        app_link = (
-            f"{base_url}?tab=executions"
-            f"&q={urllib.parse.quote(etl_name)}"
-            f"&exec={execution.id}"
-        )
-
-        subject = f"[ETL Platform] {label} — {exec_status}"
-
-        if exec_status == "SUCCESS":
-            body = (
-                f"ETL execution completed successfully.\n\n"
-                f"ETL:       {etl_name}\n"
-                f"Label:     {label}\n"
-                f"Status:    {exec_status}\n"
-                f"Duration:  {duration}\n"
-                f"Outputs:   {output_count} file(s)\n"
-            )
-        else:
-            body = (
-                f"ETL execution failed.\n\n"
-                f"ETL:    {etl_name}\n"
-                f"Label:  {label}\n"
-                f"Status: {exec_status}\n"
-                f"Error:  {execution.error_message or 'Unknown error'}\n\n"
-                f"--- Last stderr ---\n"
-                f"{(execution.stderr_log or '')[-2000:]}\n"
-            )
-
-        if execution.config_overrides:
-            body += "\n--- Config overrides ---\n"
-            for k, v in execution.config_overrides.items():
-                body += f"  {k}: {v}\n"
-
-        body += f"\nGo to execution: {app_link}\n"
-
-        from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@etl-platform.local")
-        send_mail(subject, body, from_email, [recipient], fail_silently=False)
-        print(f"[EMAIL] Report sent to {recipient}")
-
-    except Exception as e:
-        print(f"[EMAIL] Failed to send report: {e}")
-        # Never raise — email failure must not crash the execution record
 
 
 def _handle_notifications(execution: Execution, output_count: int) -> None:
@@ -851,7 +796,8 @@ def _handle_notifications(execution: Execution, output_count: int) -> None:
         return
 
     try:
-        _send_email_report(execution, execution.notify_email, output_count)
+        from ...notification.services.email_service import send_execution_report
+        send_execution_report(execution, recipient=execution.notify_email)
         execution.report_sent = True
         execution.report_sent_at = timezone.now()
         execution.save(update_fields=["report_sent", "report_sent_at"])

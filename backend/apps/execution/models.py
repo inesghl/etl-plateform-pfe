@@ -95,6 +95,12 @@ class Execution(models.Model):
     process_pid = models.IntegerField(null=True, blank=True)
     cancel_requested = models.BooleanField(default=False)
 
+    # Soft delete — set when a non-admin user "deletes" their own execution.
+    # The row is never actually removed unless an admin deletes it, so admins
+    # always retain full history for tracking even after a user clears it
+    # from their own list.
+    hidden_by_user = models.BooleanField(default=False)
+
     class Meta:
         app_label = 'execution'
         db_table = 'executions'

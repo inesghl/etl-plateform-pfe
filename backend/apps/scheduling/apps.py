@@ -40,9 +40,20 @@ def _start_scheduler_thread():
     print("[SCHEDULER] ✓ Background thread started — polling every 60s")
 
 
+def _seconds_until_next_minute() -> float:
+    """How long to sleep so the next tick lands right at the top of the next
+    minute (HH:MM:00), instead of drifting by however many seconds the loop
+    happened to start at. A 0.2s cushion avoids waking up just *before* the
+    boundary and missing a schedule due exactly then."""
+    return 60 - (time.time() % 60) + 0.2
+
+
 def _scheduler_loop():
     print("[SCHEDULER] Loop starting, waiting 10s for Django to finish init...")
     time.sleep(10)
+    # First tick fires immediately (same as before) — only the gap BETWEEN
+    # ticks is aligned to the minute boundary, so we never delay the very
+    # first check after a restart.
     print("[SCHEDULER] Loop ready — first tick in progress")
     while True:
         try:
@@ -52,4 +63,8 @@ def _scheduler_loop():
             print(f"[SCHEDULER] ❌ Loop error: {exc}")
             import traceback
             traceback.print_exc()
-        time.sleep(60)
+        # Sleep until the start of the NEXT minute, not a flat 60s from now —
+        # otherwise the loop's tick offset drifts away from wall-clock minute
+        # boundaries and a schedule due at HH:MM:00 can sit unnoticed for up
+        # to 59s depending on when the loop happened to start.
+        time.sleep(_seconds_until_next_minute())

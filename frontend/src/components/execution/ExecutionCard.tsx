@@ -10,6 +10,8 @@ import { ScheduledExecutionBanner } from "../scheduling/scheduleExecutionBanner"
 
 type Props = {
   execution: Execution;
+  isAdmin?: boolean;
+  currentUsername?: string;
   onViewLogs?: (exec: Execution) => void;
   onViewOutputs?: (exec: Execution) => void;
   onViewInputs?: (exec: Execution) => void;
@@ -19,6 +21,8 @@ type Props = {
 
 export function ExecutionCard({
   execution: initialExecution,
+  isAdmin = false,
+  currentUsername,
   onViewLogs,
   onViewOutputs,
   onViewInputs,
@@ -35,6 +39,14 @@ export function ExecutionCard({
   const [cancelling, setCancelling] = useState(false);
 
   const cancellable = ["PENDING", "VALIDATED", "INSTALLING_DEPS", "RUNNING"].includes(execution.status);
+  const isOwner = !!currentUsername && execution.launched_by_username === currentUsername;
+  const isUnclaimed = !execution.launched_by_username;
+  // Cancel: admin, the owner, or anyone (e.g. a group member) on a run
+  // nobody has claimed yet. Delete: admin or the owner only — an unclaimed
+  // shared run can't be hidden by one user without affecting everyone else
+  // who can see it, so it can only be cancelled, not deleted.
+  const canCancel = isAdmin || isOwner || isUnclaimed;
+  const canDelete = isAdmin || isOwner;
 
   // Auto-refresh while running
   useEffect(() => {
@@ -142,6 +154,16 @@ export function ExecutionCard({
             </div>
           )}
 
+          {/* Admin-only: this row was deleted from the owner's own view, but kept for tracking */}
+          {isAdmin && execution.hidden_by_user && (
+            <div style={{
+              marginTop: 4, fontSize: 11, color: "#94a3b8",
+              fontStyle: "italic",
+            }}>
+              👁 Removed from {execution.launched_by_username ?? "the user"}&apos;s own list — kept for tracking
+            </div>
+          )}
+
           {/* Report sent badge */}
           {execution.report_sent && (
             <div style={{ fontSize: 11, color: "#16a34a", marginTop: 4 }}>
@@ -194,13 +216,13 @@ export function ExecutionCard({
             </Button>
           )}
 
-          {cancellable && (
+          {canCancel && cancellable && (
             <Button small variant="danger" onClick={handleCancel} disabled={cancelling}>
               {cancelling ? "…" : "✕ Cancel"}
             </Button>
           )}
 
-          {onDelete && !cancellable && (
+          {canDelete && onDelete && !cancellable && (
             <Button small variant="danger" onClick={handleDelete} disabled={deleting}>
               {deleting ? "…" : "Delete"}
             </Button>
@@ -247,6 +269,8 @@ export function ExecutionCard({
       {/* Scheduled execution banner */}
       <ScheduledExecutionBanner
         execution={execution}
+        isAdmin={isAdmin}
+        currentUsername={currentUsername}
         onLaunch={(exec) => onReviewScheduled?.(exec)}
       />
     </Card>

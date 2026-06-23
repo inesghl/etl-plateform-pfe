@@ -44,7 +44,10 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
 
   const [tab, setTab] = useState<string>(initialTab);
   const [execSearch, setExecSearch] = useState<string>(initialSearch);
+  // Admin-only toggle: their own executions vs. everyone's (oversight view)
+  const [execScope, setExecScope] = useState<"mine" | "all">("mine");
   const [launchEtl, setLaunchEtl] = useState<Etl | null>(null);
+  const [resumeExec, setResumeExec] = useState<Execution | null>(null);
   const [logExec, setLogExec] = useState<Execution | null>(null);
   const [outputExec, setOutputExec] = useState<Execution | null>(null);
   const [inputExec, setInputExec] = useState<Execution | null>(null);
@@ -98,7 +101,10 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
 
   function handleReviewScheduled(exec: Execution) {
     const etl = etls.find(e => e.id === exec.etl);
-    if (etl) setLaunchEtl(etl);
+    if (etl) {
+      setResumeExec(exec);
+      setLaunchEtl(etl);
+    }
     setTab("executions");
   }
 
@@ -224,7 +230,7 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
                 onValidate={validate}
                 onActivate={activate}
                 onDeactivate={deactivate}
-                onLaunch={setLaunchEtl}
+                onLaunch={etl => { setResumeExec(null); setLaunchEtl(etl); }}
                 onRefresh={handleRefreshAll}
               />
             </>
@@ -240,22 +246,73 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
           )}
 
           {/* Executions */}
-          {tab === "executions" && (
-            <>
-              <div className={styles.sectionHeader}>
-                <h2 className={styles.sectionTitle}>Executions ({executions.length})</h2>
-                <Button small variant="secondary" onClick={loadExecutions}>↻ Refresh</Button>
-              </div>
-              <ExecutionList
-                executions={executions}
-                initialSearch={execSearch}
-                onViewLogs={setLogExec}
-                onViewOutputs={setOutputExec}
-                onViewInputs={setInputExec}
-                onReviewScheduled={handleReviewScheduled}
-              />
-            </>
-          )}
+          {tab === "executions" && (() => {
+            const TERMINAL_STATUSES = ["SUCCESS", "FAILED", "CANCELLED"];
+            const scopedExecutions = !isAdmin
+              ? executions
+              : execScope === "mine"
+              ? executions.filter(e => e.launched_by_username === currentUser.username)
+              // "Users' Executions" = oversight of OTHER users, once finished.
+              // Each user now owns and manages their own pending/running runs
+              // independently — the admin's role here is checking results
+              // (outputs/logs) afterwards, not intervening mid-flight.
+              : executions.filter(e =>
+                  e.launched_by_username !== currentUser.username
+                  && TERMINAL_STATUSES.includes(e.status)
+                );
+            return (
+              <>
+                <div className={styles.sectionHeader}>
+                  <h2 className={styles.sectionTitle}>
+                    {isAdmin ? (execScope === "mine" ? "My Executions" : "Users' Executions") : "Executions"}
+                    {" "}({scopedExecutions.length})
+                  </h2>
+                  <Button small variant="secondary" onClick={loadExecutions}>↻ Refresh</Button>
+                </div>
+
+                {isAdmin && (
+                  <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                    <button
+                      onClick={() => setExecScope("mine")}
+                      style={{
+                        padding: "6px 14px", borderRadius: 8, fontSize: 13, cursor: "pointer",
+                        border: `1px solid ${execScope === "mine" ? "#2563eb" : "#e2e8f0"}`,
+                        background: execScope === "mine" ? "#eff6ff" : "#fff",
+                        color: execScope === "mine" ? "#1e40af" : "#64748b",
+                        fontWeight: execScope === "mine" ? 600 : 400,
+                      }}
+                    >
+                      My Executions
+                    </button>
+                    <button
+                      onClick={() => setExecScope("all")}
+                      style={{
+                        padding: "6px 14px", borderRadius: 8, fontSize: 13, cursor: "pointer",
+                        border: `1px solid ${execScope === "all" ? "#2563eb" : "#e2e8f0"}`,
+                        background: execScope === "all" ? "#eff6ff" : "#fff",
+                        color: execScope === "all" ? "#1e40af" : "#64748b",
+                        fontWeight: execScope === "all" ? 600 : 400,
+                      }}
+                      title="Finished executions from other users — review results, outputs & logs"
+                    >
+                      Users' Executions (finished)
+                    </button>
+                  </div>
+                )}
+
+                <ExecutionList
+                  executions={scopedExecutions}
+                  initialSearch={execSearch}
+                  isAdmin={isAdmin}
+                  currentUsername={currentUser.username}
+                  onViewLogs={setLogExec}
+                  onViewOutputs={setOutputExec}
+                  onViewInputs={setInputExec}
+                  onReviewScheduled={handleReviewScheduled}
+                />
+              </>
+            );
+          })()}
 
           {/* Notifications */}
           {tab === "notifications" && (
@@ -302,7 +359,8 @@ function Dashboard({ currentUser, onLogout, onUserUpdated }: Props) {
       {launchEtl && (
         <LaunchModal
           etl={launchEtl}
-          onClose={() => setLaunchEtl(null)}
+          resumeExecution={resumeExec ?? undefined}
+          onClose={() => { setLaunchEtl(null); setResumeExec(null); }}
           onDone={handleLaunchDone}
           onCreateExecution={createExecution}
           onLaunch={launchExecution}

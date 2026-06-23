@@ -47,92 +47,115 @@ def _do_check() -> None:
         etl = schedule.etl
         print(f"[SCHEDULER] 🚀 FIRING '{etl.name}'")
 
-        execution = Execution.objects.create(
-            etl=etl,
-            launched_by=None,
-            status="PENDING",
-            execution_config=dict(etl.config),
-            execution_label=f"{etl.name} — scheduled {now.strftime('%Y-%m-%d')}",
-        )
+        recipients = _resolve_recipient_users(etl)
+        if not recipients:
+            logger.warning("[SCHEDULER] No eligible users for ETL '%s' — nothing created", etl.name)
 
-        _send_schedule_notifications(schedule, execution, now)
+        for user in recipients:
+            # Each eligible user gets their OWN execution row, owned by them
+            # from the start (launched_by=user, not None). Two users never
+            # share one row, so cancelling/deleting/launching yours can never
+            # affect anyone else's copy of the same scheduled run.
+            execution = Execution.objects.create(
+                etl=etl,
+                launched_by=user,
+                status="PENDING",
+                execution_config=dict(etl.config),
+                execution_label=f"{etl.name} — scheduled {now.strftime('%Y-%m-%d')}",
+            )
+            try:
+                _notify_user_of_scheduled_execution(schedule, execution, user, now)
+            except Exception as e:
+                logger.warning(
+                    "[SCHEDULER] Notify failed for %s on '%s': %s", user.username, etl.name, e
+                )
+            print(f"[SCHEDULER] ✓ Execution {execution.id} created for '{etl.name}' → {user.username}")
+
+        if schedule.backup_email:
+            try:
+                _send_backup_summary_email(schedule, recipients, now)
+            except Exception as e:
+                logger.warning("[SCHEDULER] Backup email failed for '%s': %s", etl.name, e)
 
         schedule.last_triggered_at = now
         schedule.save(update_fields=["last_triggered_at"])
 
-        print(f"[SCHEDULER] ✓ Execution {execution.id} created for '{etl.name}'")
 
+def _resolve_recipient_users(etl) -> list:
+    """
+    Every user who is eligible to run this ETL: the creator, plus members of
+    its assigned groups, plus individually-allowed users — or, if the ETL has
+    no restriction at all (public), every active user. Same rule used for
+    ETL visibility everywhere else in the platform.
+    """
+    users: dict = {}
 
-def _send_schedule_notifications(schedule, execution, now: datetime) -> None:
-    etl = schedule.etl
+    def _add(user):
+        if user and user.is_active:
+            users[user.id] = user
 
-    email_recipients: set[str] = set(schedule.all_notify_emails)
+    _add(etl.created_by)
 
-    # Always include creator
-    if etl.created_by.email:
-        email_recipients.add(etl.created_by.email)
-
-    # Also include all active group members who have access to this ETL
-    for group in etl.allowed_groups.all():
-        for member in group.members.filter(is_active=True):
-            if member.email:
-                email_recipients.add(member.email)
-
-    if not email_recipients:
-        logger.warning("[SCHEDULER] No notify emails for schedule %s", schedule.id)
+    if not etl.allowed_groups.exists() and not etl.allowed_users.exists():
+        from ..accounts.models import User
+        for u in User.objects.filter(is_active=True):
+            _add(u)
     else:
-        for addr in email_recipients:
-            try:
-                _send_schedule_email(schedule, execution, addr, now)
-            except Exception as e:
-                logger.warning(
-                    "[SCHEDULER] Email to %s failed for '%s': %s", addr, etl.name, e
-                )
-
-    _create_inapp_notifications(schedule, execution)
-
-def _create_inapp_notifications(schedule, execution) -> None:
-    """
-    In-app notifications when a scheduled run fires.
-    Notifies (once each): ETL creator + group members + individually allowed users.
-    No separate admin flood — an admin only gets notified if they're the
-    creator or a group member.
-    """
-    try:
-        from ..notification.models import Notification
-
-        etl     = schedule.etl
-        creator = etl.created_by
-        message = (
-            f"Your {schedule.frequency} scheduled run for \"{etl.name}\" is ready. "
-            "Go to the Executions tab, review the config, and click Launch."
-        )
-
-        notified_ids: set = set()
-
-        def _notify(user):
-            if not user or user.id in notified_ids:
-                return
-            Notification.objects.create(
-                user=user,
-                title=f"⏰ Scheduled run ready: {etl.name}",
-                message=message,
-                notification_type="info",
-                execution=execution,
-            )
-            notified_ids.add(user.id)
-
-        _notify(creator)
-
         for group in etl.allowed_groups.prefetch_related("members").all():
             for member in group.members.filter(is_active=True):
-                _notify(member)
+                _add(member)
+        for u in etl.allowed_users.filter(is_active=True):
+            _add(u)
 
-        for user in etl.allowed_users.filter(is_active=True):
-            _notify(user)
+    return list(users.values())
 
-    except Exception as e:
-        logger.warning("[SCHEDULER] In-app notification error: %s", e, exc_info=True)
+
+def _notify_user_of_scheduled_execution(schedule, execution, user, now: datetime) -> None:
+    """In-app + email notification for ONE user about THEIR OWN execution."""
+    from ..notification.models import Notification
+
+    etl = schedule.etl
+    message = (
+        f"Your {schedule.frequency} scheduled run for \"{etl.name}\" is ready. "
+        "Go to the Executions tab, review the config, and click Launch."
+    )
+    Notification.objects.create(
+        user=user,
+        title=f"⏰ Scheduled run ready: {etl.name}",
+        message=message,
+        notification_type="info",
+        execution=execution,
+    )
+
+    if user.email:
+        try:
+            _send_schedule_email(schedule, execution, user.email, now)
+        except Exception as e:
+            logger.warning(
+                "[SCHEDULER] Email to %s failed for '%s': %s", user.email, etl.name, e
+            )
+
+
+def _send_backup_summary_email(schedule, recipients, now: datetime) -> None:
+    """
+    The optional backup/CC address isn't a platform user with their own
+    execution — it just gets a heads-up that the schedule fired and who got
+    their own copy to review.
+    """
+    from django.core.mail import send_mail
+
+    etl = schedule.etl
+    names = ", ".join(u.username for u in recipients) or "no eligible users"
+    subject = f"⏰ Scheduled ETL fired: {etl.name}"
+    body = (
+        f"The {schedule.frequency} schedule for \"{etl.name}\" fired at "
+        f"{now.strftime('%Y-%m-%d %H:%M')}.\n\n"
+        f"A separate pending execution was created for each of: {names}.\n"
+        "Each of them needs to review and launch their own run from the platform."
+    )
+    from_email = getattr(settings, "DEFAULT_FROM_EMAIL", "noreply@etl-platform.local")
+    send_mail(subject, body, from_email, [schedule.backup_email], fail_silently=False)
+
 
 def _send_schedule_email(schedule, execution, recipient: str, now: datetime) -> None:
     from django.core.mail import EmailMultiAlternatives

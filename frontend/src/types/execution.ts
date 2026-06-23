@@ -38,4 +38,5 @@ export type Execution = {
   notify_email?: string;
   report_sent?: boolean;
   report_sent_at?: string;
+  hidden_by_user?: boolean;
 };

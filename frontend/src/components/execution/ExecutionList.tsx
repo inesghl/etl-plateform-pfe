@@ -6,6 +6,8 @@ import { Empty } from "../common/Empty";
 type Props = {
   executions: Execution[];
   initialSearch?: string;
+  isAdmin?: boolean;
+  currentUsername?: string;
   onViewLogs?: (exec: Execution) => void;
   onViewOutputs?: (exec: Execution) => void;
   onViewInputs?: (exec: Execution) => void;
@@ -15,6 +17,8 @@ type Props = {
 export function ExecutionList({
   executions: initialExecutions,
   initialSearch = "",
+  isAdmin = false,
+  currentUsername,
   onViewLogs,
   onViewOutputs,
   onViewInputs,
@@ -78,6 +82,8 @@ export function ExecutionList({
           <ExecutionCard
             key={exec.id}
             execution={exec}
+            isAdmin={isAdmin}
+            currentUsername={currentUsername}
             onViewLogs={onViewLogs}
             onViewOutputs={onViewOutputs}
             onViewInputs={onViewInputs}

@@ -42,6 +42,7 @@ class ExecutionSerializer(serializers.ModelSerializer):
            "notify_email",
            "report_sent",
            "report_sent_at",
+           "hidden_by_user",
        ]
        read_only_fields = [
            "id",
@@ -65,6 +66,7 @@ class ExecutionSerializer(serializers.ModelSerializer):
            "duration_seconds",
            "report_sent",
            "report_sent_at",
+           "hidden_by_user",
        ]
 
 
