@@ -1,0 +1,25 @@
+{
+  "execution_id": "5400c279-d1c1-4c55-85d5-a0886975928a",
+  "etl_id": "0cd77af5-f707-4f58-ba31-a23335f4914c",
+  "work_directory": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\5400c279-d1c1-4c55-85d5-a0886975928a",
+  "outputs": {
+    "directory": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\5400c279-d1c1-4c55-85d5-a0886975928a\\outputs",
+    "deleted": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\5400c279-d1c1-4c55-85d5-a0886975928a\\deleted",
+    "archive": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\5400c279-d1c1-4c55-85d5-a0886975928a\\archive"
+  },
+  "config": {
+    "input2": {
+      "path": "data/folder/",
+      "file1": "test_drive.xlsx",
+      "file2": "parc*S*.xlsx",
+      "file3": "*test.txt",
+      "file4": "-",
+      "files number": 45
+    },
+    "logs_dir": "logs",
+    "input_excel": "data/input.xlsx",
+    "deleted_rows": "deleted/deleted_rows.xlsx",
+    "output_excel": "outputs/final_outputs.xlsx"
+  },
+  "config_overrides": {}
+}

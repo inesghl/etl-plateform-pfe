@@ -1,0 +1,22 @@
+{
+  "invoices_excel": "C:/Users/YourName/Desktop/etl_data/invoices.xlsx",
+  "purchase_orders_excel": "C:/Users/YourName/Desktop/etl_data/purchase_orders.xlsx",
+
+  "suppliers_folder": {
+    "path": "C:/Users/YourName/Desktop/etl_data/suppliers/",
+    "files number": 2,
+    "file1": "suppliers_*.xlsx",
+    "file2": "blacklist_*.xlsx",
+    "file3": "-"
+  },
+
+  "output_report": "C:/Users/YourName/Desktop/etl_output/reconciliation_report.xlsx",
+  "rejected_invoices": "C:/Users/YourName/Desktop/etl_output/rejected_invoices.xlsx",
+  "logs_dir": "C:/Users/YourName/Desktop/etl_output/logs",
+
+  "currency": "TND",
+  "vat_rate": 0.19,
+  "amount_tolerance": 5.0,
+  "payment_overdue_days": 30,
+  "reference_date": "2026-06-13"
+}

@@ -1,0 +1,30 @@
+{
+  "execution_id": "7e08c333-fbca-4a22-a036-f4c494c9ce5a",
+  "etl_id": "dee51634-bdfb-484b-a1c3-148ab07a4563",
+  "work_directory": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\7e08c333-fbca-4a22-a036-f4c494c9ce5a",
+  "outputs": {
+    "directory": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\7e08c333-fbca-4a22-a036-f4c494c9ce5a\\outputs",
+    "deleted": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\7e08c333-fbca-4a22-a036-f4c494c9ce5a\\deleted",
+    "archive": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\7e08c333-fbca-4a22-a036-f4c494c9ce5a\\archive"
+  },
+  "config": {
+    "currency": "TND",
+    "logs_dir": "C:\\Users\\ines.ghali_amaris\\Downloads\\sample_desktop_data\\logs",
+    "vat_rate": 0.19,
+    "output_report": "C:\\Users\\ines.ghali_amaris\\Downloads\\sample_desktop_data\\etl_output\\final_outputs.xlsx",
+    "invoices_excel": "C:\\Users\\ines.ghali_amaris\\Downloads\\sample_desktop_data\\sample_data\\invoices.xlsx",
+    "reference_date": "2026-06-13",
+    "amount_tolerance": 5.0,
+    "suppliers_folder": {
+      "path": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\7e08c333-fbca-4a22-a036-f4c494c9ce5a\\suppliers",
+      "file1": "suppliers_*.xlsx",
+      "file2": "*_active.xlsx",
+      "check_mode": "both",
+      "files number": 2
+    },
+    "rejected_invoices": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Desktop\\sample_desktop_data\\etl_output\\rejected_invoices.xlsx",
+    "payment_overdue_days": 30,
+    "purchase_orders_excel": "C:\\Users\\ines.ghali_amaris\\Downloads\\sample_desktop_data\\sample_data\\purchase_orders.xlsx"
+  },
+  "config_overrides": {}
+}

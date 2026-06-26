@@ -92,9 +92,9 @@ function getFolderFileEntries(block: Record<string, any>): Array<{ key: string; 
     .map(([key, value]) => ({ key, value: String(value ?? "") }));
 }
 function looksLikeDate(key: string, value: any): boolean {
-  const k = key.toLowerCase().replace(/[_-]/g, "");
   const dateKeywords = ["date", "from", "to", "start", "end", "period", "month", "year", "since", "until"];
-  return dateKeywords.some(kw => k.includes(kw));
+  const tokens = key.toLowerCase().split(/[_\-\s]+/);
+  return dateKeywords.some(kw => tokens.includes(kw));
 }
 
 function DateConfigField({ fieldKey, currentVal, baseVal, isChanged, onChange, onReset }: {
@@ -602,10 +602,6 @@ function LaunchModal({ etl, onClose, onDone, onCreateExecution, onLaunch, resume
             </div>
           )
         }
-        <DeliveryPicker
-          outputDelivery={outputDelivery} notifyEmail={notifyEmail}
-          onChangeDelivery={setOutputDelivery} onChangeEmail={setNotifyEmail}
-        />
         {err && <ErrorBox>{err}</ErrorBox>}
       </ModalShell>
     );
@@ -1279,41 +1275,6 @@ function DataframePreviewPanel({ preview, activeTab, onTabChange }: {
 
 const TH: React.CSSProperties = { padding: "5px 10px", textAlign: "left", fontWeight: 600, color: T.textMid, borderBottom: `1px solid ${T.border}`, whiteSpace: "nowrap" };
 const TD: React.CSSProperties = { padding: "4px 10px" };
-
-// ─────────────────────────────────────────────────────────────
-// DeliveryPicker
-// ─────────────────────────────────────────────────────────────
-
-function DeliveryPicker({ outputDelivery, notifyEmail, onChangeDelivery, onChangeEmail }: {
-  outputDelivery: OutputDelivery; notifyEmail: string;
-  onChangeDelivery: (v: OutputDelivery) => void; onChangeEmail: (v: string) => void;
-}) {
-  return (
-    <div style={{ borderTop: `1px solid ${T.border}`, paddingTop: 16 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, color: T.textMid, marginBottom: 8 }}>Send results to:</div>
-      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        {(["app", "email", "both"] as OutputDelivery[]).map(opt => (
-          <button key={opt} onClick={() => onChangeDelivery(opt)} style={{
-            padding: "6px 14px", borderRadius: T.r, fontSize: 13,
-            border: `1px solid ${outputDelivery === opt ? T.accent : T.border}`,
-            background: outputDelivery === opt ? T.accentBg : "#fff",
-            color: outputDelivery === opt ? "#1e40af" : T.textMid,
-            cursor: "pointer", fontWeight: outputDelivery === opt ? 600 : 400,
-          }}>
-            {opt === "app" ? "App only" : opt === "email" ? "Email only" : "App + email"}
-          </button>
-        ))}
-      </div>
-      {(outputDelivery === "email" || outputDelivery === "both") && (
-        <div>
-          <label style={{ fontSize: 12, fontWeight: 600, color: T.textMuted, display: "block", marginBottom: 4 }}>Email address</label>
-          <input type="email" value={notifyEmail} onChange={e => onChangeEmail(e.target.value)}
-            placeholder="recipient@company.com" style={inputStyle} />
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ─────────────────────────────────────────────────────────────
 // ExecutionProgress

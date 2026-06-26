@@ -9,7 +9,7 @@
     "check_mode": "both"
   },
   "output_report": "C:\\Users\\ines.ghali_amaris\\Downloads\\sample_desktop_data\\etl_output\\final_outputs.xlsx",
-  "rejected_invoices": "C:/Users/YourName/Desktop/etl_output/rejected_invoices.xlsx",
+  "rejected_invoices": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Desktop\\sample_desktop_data\\etl_output\\rejected_invoices.xlsx",
   "logs_dir": "C:\\Users\\ines.ghali_amaris\\Downloads\\sample_desktop_data\\logs",
   "currency": "TND",
   "vat_rate": 0.19,

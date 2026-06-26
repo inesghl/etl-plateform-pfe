@@ -1,0 +1,19 @@
+{
+  "currency": "TND",
+  "logs_dir": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Desktop\\sample_desktop_data\\logs",
+  "vat_rate": 0.19,
+  "output_report": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Desktop\\sample_desktop_data\\etl_output\\final_outputs.xlsx",
+  "invoices_excel": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Desktop\\sample_desktop_data\\sample_data\\invoices.xlsx",
+  "reference_date": "2026-06-13",
+  "amount_tolerance": 5.0,
+  "suppliers_folder": {
+    "path": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\8b546301-a583-4375-bff4-81393afdabbb\\suppliers",
+    "file1": "suppliers_*.xlsx",
+    "file2": "blacklist_*.xlsx",
+    "check_mode": "both",
+    "files number": 2
+  },
+  "rejected_invoices": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Desktop\\sample_desktop_data\\etl_output\\rejected.xlsx",
+  "payment_overdue_days": 30,
+  "purchase_orders_excel": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Desktop\\sample_desktop_data\\sample_data\\purchase_orders.xlsx"
+}

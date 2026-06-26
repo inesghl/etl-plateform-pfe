@@ -1,0 +1,30 @@
+{
+  "execution_id": "c3a9d43f-5f59-41fa-ac59-fd593ed18705",
+  "etl_id": "b17a42e7-6ec3-4129-b772-a749d6aa08cb",
+  "work_directory": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\c3a9d43f-5f59-41fa-ac59-fd593ed18705",
+  "outputs": {
+    "directory": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\c3a9d43f-5f59-41fa-ac59-fd593ed18705\\outputs",
+    "deleted": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\c3a9d43f-5f59-41fa-ac59-fd593ed18705\\deleted",
+    "archive": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\c3a9d43f-5f59-41fa-ac59-fd593ed18705\\archive"
+  },
+  "config": {
+    "currency": "TND",
+    "logs_dir": "C:/Users/YourName/Desktop/etl_output/logs",
+    "vat_rate": 0.19,
+    "output_report": "C:/Users/YourName/Desktop/etl_output/reconciliation_report.xlsx",
+    "invoices_excel": "C:/Users/YourName/Desktop/etl_data/invoices.xlsx",
+    "reference_date": "2026-06-13",
+    "amount_tolerance": 5.0,
+    "suppliers_folder": {
+      "path": "C:/Users/YourName/Desktop/etl_data/suppliers/",
+      "file1": "suppliers_*.xlsx",
+      "file2": "blacklist_*.xlsx",
+      "file3": "-",
+      "files number": 2
+    },
+    "rejected_invoices": "C:/Users/YourName/Desktop/etl_output/rejected_invoices.xlsx",
+    "payment_overdue_days": 30,
+    "purchase_orders_excel": "C:/Users/YourName/Desktop/etl_data/purchase_orders.xlsx"
+  },
+  "config_overrides": {}
+}
