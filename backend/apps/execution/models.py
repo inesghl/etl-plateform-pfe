@@ -101,6 +101,12 @@ class Execution(models.Model):
     # from their own list.
     hidden_by_user = models.BooleanField(default=False)
 
+    # Step-chain: when set, the engine skips steps before this number and
+    # re-runs from here onwards, reusing previous step snapshots.
+    rerun_from_step = models.IntegerField(null=True, blank=True)
+    # Per-rerun input overrides: { "step_name": { "input_name": "/custom/path" } }
+    step_input_overrides = models.JSONField(default=dict, blank=True)
+
     class Meta:
         app_label = 'execution'
         db_table = 'executions'
@@ -108,6 +114,54 @@ class Execution(models.Model):
 
     def __str__(self):
         return f"{self.etl.name} - {self.launched_at:%Y-%m-%d %H:%M}"
+
+    @property
+    def duration_seconds(self):
+        if self.started_at and self.completed_at:
+            return (self.completed_at - self.started_at).total_seconds()
+        return None
+
+
+class StepExecution(models.Model):
+    STATUS_CHOICES = [
+        ('PENDING', 'Pending'),
+        ('RUNNING', 'Running'),
+        ('SUCCESS', 'Success'),
+        ('FAILED', 'Failed'),
+        ('SKIPPED', 'Skipped'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    execution = models.ForeignKey(
+        'Execution', on_delete=models.CASCADE, related_name='step_executions'
+    )
+    step_order = models.IntegerField()
+    step_name = models.CharField(max_length=200)
+    script = models.CharField(max_length=500)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+
+    # Original input refs from config (e.g. "steps.extract.raw_invoices")
+    raw_input_refs = models.JSONField(default=dict, blank=True)
+    # Resolved absolute paths that were passed to this step
+    resolved_inputs = models.JSONField(default=dict, blank=True)
+    # Absolute path to this step's output snapshot directory
+    output_snapshot_path = models.CharField(max_length=1000, blank=True)
+
+    started_at = models.DateTimeField(null=True, blank=True)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    return_code = models.IntegerField(null=True, blank=True)
+    stdout_log = models.TextField(blank=True)
+    stderr_log = models.TextField(blank=True)
+    rerun_count = models.IntegerField(default=0)
+
+    class Meta:
+        app_label = 'execution'
+        db_table = 'step_executions'
+        ordering = ['step_order']
+        unique_together = [['execution', 'step_order']]
+
+    def __str__(self):
+        return f"Step {self.step_order}: {self.step_name} ({self.status})"
 
     @property
     def duration_seconds(self):

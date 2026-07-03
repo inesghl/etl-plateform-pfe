@@ -521,7 +521,10 @@ function LaunchModal({ etl, onClose, onDone, onCreateExecution, onLaunch, resume
     const etlConfig = prepareData.etl_config || {};
     const allKeys = Object.keys(etlConfig).filter(k => !["input_requirements", "expected_outputs"].includes(k));
     const folderKeys = allKeys.filter(k => isFolderBlock(etlConfig[k]));
-    const simpleKeys = allKeys.filter(k => !isFolderBlock(etlConfig[k]));
+    const simpleKeys = allKeys.filter(k => {
+      const v = etlConfig[k];
+      return !isFolderBlock(v) && !Array.isArray(v) && (v === null || typeof v !== "object");
+    });
 
     const changedSimple = simpleKeys.filter(
       k => overrides[k] !== undefined && overrides[k] !== String(etlConfig[k] ?? "")
@@ -556,6 +559,61 @@ function LaunchModal({ etl, onClose, onDone, onCreateExecution, onLaunch, resume
                 Edit any value for this run. For folder blocks, update path, file count, and file names.
                 Check <em>Save as default</em> to update the ETL's base config.
               </p>
+
+              {/* Steps-chain: pipeline notice + input_requirements as editable path fields */}
+              {Array.isArray(etlConfig.steps) && (() => {
+                const inputReqs: Record<string, any> = etlConfig.input_requirements ?? {};
+                const reqKeys = Object.keys(inputReqs);
+                return (
+                  <>
+                    <div style={{
+                      padding: "10px 14px", borderRadius: T.r,
+                      border: `1px solid ${T.border}`, background: T.surface,
+                      fontSize: 13, color: T.textMid,
+                    }}>
+                      <strong>Step-chain ETL</strong> — {(etlConfig.steps as any[]).length} steps:{" "}
+                      {(etlConfig.steps as any[]).map((s: any, i: number) => (
+                        <span key={i}>
+                          {i > 0 && <span style={{ color: T.textMuted }}> → </span>}
+                          <code style={{ fontFamily: T.mono, fontSize: 12 }}>{s.name ?? `step ${i + 1}`}</code>
+                        </span>
+                      ))}
+                    </div>
+                    {reqKeys.length > 0 && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: T.textMid }}>Input files</div>
+                        {reqKeys.map(key => {
+                          const meta = inputReqs[key] ?? {};
+                          const required = meta.required !== false;
+                          const exts: string[] = meta.extensions ?? [];
+                          const currentVal = overrides[key] ?? "";
+                          return (
+                            <div key={key} style={{
+                              padding: "10px 12px", borderRadius: T.r,
+                              border: `1px solid ${currentVal ? T.border : required ? "#f59e0b88" : T.border}`,
+                              background: T.surface,
+                            }}>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                                <span style={{ fontFamily: T.mono, fontSize: 12, color: T.textMid, fontWeight: 600 }}>{key}</span>
+                                {required
+                                  ? <Chip color={T.danger}>required</Chip>
+                                  : <Chip color={T.textMuted}>optional</Chip>}
+                                {exts.length > 0 && <Chip color={T.accent}>{exts.join(", ")}</Chip>}
+                              </div>
+                              <input
+                                placeholder={`Path to ${key}${exts.length ? ` (${exts.join(", ")})` : ""}`}
+                                value={currentVal}
+                                onChange={e => setOverrides(prev => ({ ...prev, [key]: e.target.value }))}
+                                style={{ ...inputStyle, background: currentVal ? T.inputBg : "#fffbeb" }}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* Folder blocks — fully editable */}
               {folderKeys.map(key => (

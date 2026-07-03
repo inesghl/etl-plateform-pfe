@@ -1,3 +1,23 @@
+export type StepStatus = "PENDING" | "RUNNING" | "SUCCESS" | "FAILED" | "SKIPPED";
+
+export type StepExecution = {
+  id: string;
+  step_order: number;
+  step_name: string;
+  script: string;
+  status: StepStatus;
+  raw_input_refs: Record<string, string>;
+  resolved_inputs: Record<string, string>;
+  output_snapshot_path: string;
+  started_at?: string;
+  completed_at?: string;
+  return_code?: number;
+  stdout_log?: string;
+  stderr_log?: string;
+  rerun_count: number;
+  duration_seconds?: number;
+};
+
 export type ExecutionStatus =
   | "PENDING"
   | "VALIDATING"

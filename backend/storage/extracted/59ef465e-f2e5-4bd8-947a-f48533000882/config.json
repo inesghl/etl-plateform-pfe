@@ -1,0 +1,59 @@
+{
+  "steps": [
+    {
+      "order": 1,
+      "name": "extract",
+      "script": "step1_extract.py",
+      "inputs": {
+        "invoices":        "etl_inputs.invoices_excel",
+        "purchase_orders": "etl_inputs.purchase_orders_excel"
+      },
+      "outputs": {
+        "raw_invoices": "output/raw_invoices.csv",
+        "raw_orders":   "output/raw_orders.csv"
+      }
+    },
+    {
+      "order": 2,
+      "name": "transform",
+      "script": "step2_transform.py",
+      "inputs": {
+        "invoices": "steps.extract.raw_invoices",
+        "orders":   "steps.extract.raw_orders"
+      },
+      "outputs": {
+        "merged": "output/merged.csv"
+      }
+    },
+    {
+      "order": 3,
+      "name": "validate",
+      "script": "step3_validate.py",
+      "inputs": {
+        "data":  "steps.transform.merged",
+        "rules": "etl_inputs.validation_rules"
+      },
+      "outputs": {
+        "validated": "output/validated.csv",
+        "report":    "output/validation_report.json"
+      }
+    },
+    {
+      "order": 4,
+      "name": "load",
+      "script": "step4_load.py",
+      "inputs": {
+        "data":       "steps.validate.validated",
+        "raw_orders": "steps.extract.raw_orders"
+      },
+      "outputs": {
+        "final_report": "output/final_report.xlsx"
+      }
+    }
+  ],
+  "input_requirements": {
+    "invoices_excel":     { "type": "file", "extensions": [".xlsx"], "required": true  },
+    "purchase_orders_excel": { "type": "file", "extensions": [".xlsx"], "required": true  },
+    "validation_rules":   { "type": "file", "extensions": [".json"], "required": false }
+  }
+}

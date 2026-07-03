@@ -1,5 +1,19 @@
 from rest_framework import serializers
-from .models import Execution
+from .models import Execution, StepExecution
+
+
+class StepExecutionSerializer(serializers.ModelSerializer):
+    duration_seconds = serializers.ReadOnlyField()
+
+    class Meta:
+        model = StepExecution
+        fields = [
+            "id", "step_order", "step_name", "script", "status",
+            "raw_input_refs", "resolved_inputs", "output_snapshot_path",
+            "started_at", "completed_at", "return_code",
+            "stdout_log", "stderr_log", "rerun_count", "duration_seconds",
+        ]
+        read_only_fields = fields
 
 class ExecutionSerializer(serializers.ModelSerializer):
    etl_name = serializers.CharField(source="etl.name", read_only=True)

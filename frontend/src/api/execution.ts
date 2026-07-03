@@ -1,5 +1,5 @@
 import { apiFetch } from "./api";
-import { Execution, OutputDelivery } from "../types/execution";
+import { Execution, OutputDelivery, StepExecution } from "../types/execution";
 
 
 
@@ -95,4 +95,19 @@ export async function cancelExecution(id: string) {
 
 export async function deleteExecution(id: string) {
   return apiFetch(`/executions/${id}/`, { method: "DELETE" });
+}
+
+export async function fetchExecutionSteps(id: string): Promise<StepExecution[]> {
+  return apiFetch(`/executions/${id}/steps/`);
+}
+
+export async function rerunFromStep(
+  id: string,
+  stepOrder: number,
+  stepInputOverrides: Record<string, Record<string, string>> = {},
+): Promise<any> {
+  return apiFetch(`/executions/${id}/rerun_from_step/`, {
+    method: "POST",
+    body: JSON.stringify({ step_order: stepOrder, step_input_overrides: stepInputOverrides }),
+  });
 }

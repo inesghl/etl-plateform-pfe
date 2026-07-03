@@ -1,0 +1,7 @@
+{
+  "inputs": {
+    "data": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\151b58c8-39fc-453c-8a20-7afc79be425a\\steps\\transform\\output\\output\\merged.csv",
+    "rules": ""
+  },
+  "output_dir": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\151b58c8-39fc-453c-8a20-7afc79be425a\\steps\\validate\\output"
+}

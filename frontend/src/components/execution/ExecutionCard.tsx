@@ -7,6 +7,7 @@ import { STATUS_COLORS } from "../../utils/constants";
 import { apiFetch } from "../../api/api";
 import { sendExecutionReport, cancelExecution } from "../../api/execution";
 import { ScheduledExecutionBanner } from "../scheduling/scheduleExecutionBanner";
+import { StepsPanel } from "./StepsPanel";
 
 type Props = {
   execution: Execution;
@@ -31,6 +32,7 @@ export function ExecutionCard({
 }: Props) {
   const [execution, setExecution] = useState(initialExecution);
   const [showOverrides, setShowOverrides] = useState(false);
+  const [showSteps, setShowSteps] = useState(false);
   const [sendingReport, setSendingReport] = useState(false);
   const [showEmailInput, setShowEmailInput] = useState(false);
   const [emailInput, setEmailInput] = useState(execution.notify_email || "");
@@ -210,6 +212,14 @@ export function ExecutionCard({
             </Button>
           )}
 
+          <Button
+            small
+            variant="ghost"
+            onClick={() => setShowSteps(s => !s)}
+          >
+            {showSteps ? "Hide steps" : "Steps"}
+          </Button>
+
           {["SUCCESS", "FAILED"].includes(execution.status) && (
             <Button small variant="ghost" onClick={() => setShowEmailInput(s => !s)}>
               {execution.report_sent ? "Resend report" : "Send report"}
@@ -273,6 +283,18 @@ export function ExecutionCard({
         currentUsername={currentUsername}
         onLaunch={(exec) => onReviewScheduled?.(exec)}
       />
+
+      {showSteps && (
+        <div style={{
+          marginTop: 12, borderTop: "0.5px solid #e2e8f0", paddingTop: 12,
+        }}>
+          <StepsPanel
+            executionId={execution.id}
+            executionStatus={execution.status}
+            onRerun={() => setExecution(prev => ({ ...prev, status: "RUNNING" }))}
+          />
+        </div>
+      )}
     </Card>
   );
 }

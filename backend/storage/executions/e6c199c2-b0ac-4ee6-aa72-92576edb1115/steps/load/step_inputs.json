@@ -1,0 +1,7 @@
+{
+  "inputs": {
+    "data": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\e6c199c2-b0ac-4ee6-aa72-92576edb1115\\steps\\validate\\output\\validated.csv",
+    "raw_orders": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\e6c199c2-b0ac-4ee6-aa72-92576edb1115\\steps\\extract\\output\\raw_orders.csv"
+  },
+  "output_dir": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\e6c199c2-b0ac-4ee6-aa72-92576edb1115\\steps\\load\\output"
+}

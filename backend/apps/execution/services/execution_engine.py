@@ -23,6 +23,7 @@ from ..models import Execution
 from ...etl.models import ETL
 from ...output_file.models import OutputFile
 from ...common.path_utils import resolve_config_key, resolve_path, is_folder_block
+from .step_engine import has_steps_config, run_steps
 # ─────────────────────────────────────────────────────────────
 # Constants
 # ─────────────────────────────────────────────────────────────
@@ -962,43 +963,69 @@ def run_execution(execution: Execution) -> None:
         execution.stdout_log += f"[{step}/{step_total}] Running ETL script...\n"
         execution.save(update_fields=["stdout_log"])
 
-        rc, out, err = _run_script(
-            venv_dir, activate_script, etl_code_dir, etl, cfg_path, work_dir,
-            execution=execution,
-        )
+        if has_steps_config(effective_config):
+            # ── Step-chain ETL ────────────────────────────────────────
+            rerun_from = execution.rerun_from_step
+            success, out, err, output_count = run_steps(
+                execution=execution,
+                work_dir=work_dir,
+                etl_code_dir=etl_code_dir,
+                venv_dir=venv_dir,
+                activate_script=activate_script,
+                config=effective_config,
+                rerun_from_step=rerun_from,
+            )
+            # Clear rerun markers after use
+            execution.rerun_from_step = None
+            execution.step_input_overrides = {}
+            execution.return_code = 0 if success else 1
+            execution.stdout_log += out
+            execution.stderr_log += err
+            execution.completed_at = timezone.now()
+            execution.stdout_log += f"\nCollected {output_count} output file(s).\n"
 
-        execution.return_code = rc
-        execution.stdout_log += out
-        execution.stderr_log += err
-        execution.completed_at = timezone.now()
-
-        # ── 7. Collect outputs ────────────────────────────────────────
-        # Must run BEFORE _determine_status so the DB records exist for check 3.
-        # BUG C fix: _collect_outputs now resolves paths against work_dir.
-        output_count = _collect_outputs(execution, work_dir, effective_config)
-        execution.stdout_log += f"\nCollected {output_count} output file(s).\n"
-
-        # ── 8. Determine status ───────────────────────────────────────
-        # If the user cancelled while the script was running, keep CANCELLED —
-        # don't let the natural outcome (often FAILED, since we killed it) overwrite it.
-        execution.refresh_from_db(fields=["status", "cancel_requested"])
-        if execution.cancel_requested or execution.status == "CANCELLED":
-            execution.status = "CANCELLED"
-            execution.error_message = "Cancelled by user."
+            execution.refresh_from_db(fields=["status", "cancel_requested"])
+            if execution.cancel_requested or execution.status == "CANCELLED":
+                execution.status = "CANCELLED"
+                execution.error_message = "Cancelled by user."
+            else:
+                execution.status = "SUCCESS" if success else "FAILED"
+                if not success:
+                    execution.error_message = (
+                        "One or more steps failed. Check the step logs for details."
+                    )
         else:
-            # BUG D fix: checks execution.output_files.exists() (DB records) first.
-            final_status, error_msg = _determine_status(
-                rc, out, err, work_dir,
+            # ── Classic single-script ETL ─────────────────────────────
+            rc, out, err = _run_script(
+                venv_dir, activate_script, etl_code_dir, etl, cfg_path, work_dir,
                 execution=execution,
             )
-            execution.status = final_status
-            execution.error_message = error_msg
+
+            execution.return_code = rc
+            execution.stdout_log += out
+            execution.stderr_log += err
+            execution.completed_at = timezone.now()
+
+            output_count = _collect_outputs(execution, work_dir, effective_config)
+            execution.stdout_log += f"\nCollected {output_count} output file(s).\n"
+
+            execution.refresh_from_db(fields=["status", "cancel_requested"])
+            if execution.cancel_requested or execution.status == "CANCELLED":
+                execution.status = "CANCELLED"
+                execution.error_message = "Cancelled by user."
+            else:
+                final_status, error_msg = _determine_status(
+                    rc, out, err, work_dir,
+                    execution=execution,
+                )
+                execution.status = final_status
+                execution.error_message = error_msg
 
         execution.save(update_fields=[
             "completed_at", "status", "return_code",
             "stdout_log", "stderr_log", "error_message",
         ])
-        print(f"[EXEC] Finished: {execution.status} (rc={rc}, outputs={output_count})")
+        print(f"[EXEC] Finished: {execution.status} (rc={execution.return_code}, outputs={output_count})")
 
     except Exception as exc:
         print(f"[EXEC] Unhandled error: {exc}")

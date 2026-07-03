@@ -15,10 +15,10 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Execution
+from .models import Execution, StepExecution
 from ..etl.models import ETL
 from .services.execution_engine import run_execution
-from .serializers import ExecutionSerializer
+from .serializers import ExecutionSerializer, StepExecutionSerializer
 from ..common.path_utils import (
     get_path_like_keys,
     resolve_config_key,
@@ -431,6 +431,82 @@ class ExecutionViewSet(viewsets.ModelViewSet):
         execution: Execution = self.get_object()
         execution.refresh_from_db()
         return Response(_run_path_checks(execution))
+
+    # ── steps ─────────────────────────────────────────────────────────
+
+    @action(detail=True, methods=["get"])
+    def steps(self, request, pk=None):
+        """List all StepExecution records for this execution."""
+        execution: Execution = self.get_object()
+        step_execs = execution.step_executions.all()
+        return Response(StepExecutionSerializer(step_execs, many=True).data)
+
+    # ── rerun_from_step ───────────────────────────────────────────────
+
+    @action(detail=True, methods=["post"])
+    def rerun_from_step(self, request, pk=None):
+        """
+        Re-run from a specific step number onwards.
+        Steps before it are skipped and their snapshots are reused as inputs.
+
+        Body: { "step_order": 3 }
+        Optionally override any input reference: { "step_order": 3, "overrides": { ... } }
+        """
+        execution: Execution = self.get_object()
+
+        if execution.status in ("RUNNING", "INSTALLING_DEPS", "PENDING", "VALIDATING"):
+            return Response(
+                {"detail": "Cannot re-run while execution is already running."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        step_order = request.data.get("step_order")
+        if step_order is None:
+            return Response(
+                {"detail": "step_order is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            step_order = int(step_order)
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "step_order must be an integer."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate that this step exists in the ETL config
+        config = execution.execution_config or execution.etl.config
+        step_orders = [s["order"] for s in config.get("steps", [])]
+        if not step_orders:
+            return Response(
+                {"detail": "This ETL does not use a step-chain config."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if step_order not in step_orders:
+            return Response(
+                {"detail": f"Step {step_order} not found. Available: {step_orders}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Accept per-step input overrides: { "step_name": { "input_name": "/custom/path" } }
+        step_input_overrides = request.data.get("step_input_overrides", {})
+        if not isinstance(step_input_overrides, dict):
+            step_input_overrides = {}
+
+        execution.rerun_from_step = step_order
+        execution.step_input_overrides = step_input_overrides
+        execution.status = "RUNNING"
+        execution.error_message = ""
+        execution.save(update_fields=["rerun_from_step", "step_input_overrides", "status", "error_message"])
+
+        t = threading.Thread(target=run_execution, args=(execution,), daemon=True)
+        t.start()
+
+        return Response({
+            "detail": f"Re-running from step {step_order}.",
+            "execution_id": str(execution.id),
+        })
 
 
 # ─────────────────────────────────────────────────────────────

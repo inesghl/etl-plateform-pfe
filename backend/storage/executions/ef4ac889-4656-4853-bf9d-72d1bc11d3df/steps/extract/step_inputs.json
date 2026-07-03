@@ -1,0 +1,7 @@
+{
+  "inputs": {
+    "invoices": "C:\\Users\\ines.ghali_amaris\\Downloads\\sample_desktop_data\\sample_data\\invoices.xlsx",
+    "purchase_orders": "C:\\Users\\ines.ghali_amaris\\Downloads\\sample_desktop_data\\sample_data\\purchase_orders.xlsx"
+  },
+  "output_dir": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\ef4ac889-4656-4853-bf9d-72d1bc11d3df\\steps\\extract\\output"
+}

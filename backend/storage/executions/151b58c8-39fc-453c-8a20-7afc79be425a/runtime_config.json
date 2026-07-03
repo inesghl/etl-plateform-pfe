@@ -1,0 +1,88 @@
+{
+  "execution_id": "151b58c8-39fc-453c-8a20-7afc79be425a",
+  "etl_id": "59ef465e-f2e5-4bd8-947a-f48533000882",
+  "work_directory": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\151b58c8-39fc-453c-8a20-7afc79be425a",
+  "outputs": {
+    "directory": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\151b58c8-39fc-453c-8a20-7afc79be425a\\outputs",
+    "deleted": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\151b58c8-39fc-453c-8a20-7afc79be425a\\deleted",
+    "archive": "C:\\Users\\ines.ghali_amaris\\PycharmProjects\\etl-plateform-pfe\\backend\\storage\\executions\\151b58c8-39fc-453c-8a20-7afc79be425a\\archive"
+  },
+  "config": {
+    "steps": [
+      {
+        "name": "extract",
+        "order": 1,
+        "inputs": {
+          "invoices": "etl_inputs.invoices_excel",
+          "purchase_orders": "etl_inputs.purchase_orders_excel"
+        },
+        "script": "step1_extract.py",
+        "outputs": {
+          "raw_orders": "output/raw_orders.csv",
+          "raw_invoices": "output/raw_invoices.csv"
+        }
+      },
+      {
+        "name": "transform",
+        "order": 2,
+        "inputs": {
+          "orders": "steps.extract.raw_orders",
+          "invoices": "steps.extract.raw_invoices"
+        },
+        "script": "step2_transform.py",
+        "outputs": {
+          "merged": "output/merged.csv"
+        }
+      },
+      {
+        "name": "validate",
+        "order": 3,
+        "inputs": {
+          "data": "steps.transform.merged",
+          "rules": "etl_inputs.validation_rules"
+        },
+        "script": "step3_validate.py",
+        "outputs": {
+          "report": "output/validation_report.json",
+          "validated": "output/validated.csv"
+        }
+      },
+      {
+        "name": "load",
+        "order": 4,
+        "inputs": {
+          "data": "steps.validate.validated",
+          "raw_orders": "steps.extract.raw_orders"
+        },
+        "script": "step4_load.py",
+        "outputs": {
+          "final_report": "output/final_report.xlsx"
+        }
+      }
+    ],
+    "input_requirements": {
+      "invoices_excel": {
+        "type": "file",
+        "required": true,
+        "extensions": [
+          ".xlsx"
+        ]
+      },
+      "validation_rules": {
+        "type": "file",
+        "required": false,
+        "extensions": [
+          ".json"
+        ]
+      },
+      "purchase_orders_excel": {
+        "type": "file",
+        "required": true,
+        "extensions": [
+          ".xlsx"
+        ]
+      }
+    }
+  },
+  "config_overrides": {}
+}

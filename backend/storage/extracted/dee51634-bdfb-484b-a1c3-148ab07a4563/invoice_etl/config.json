@@ -5,8 +5,8 @@
     "path": "C:\\Users\\ines.ghali_amaris\\Downloads\\sample_desktop_data\\sample_data\\suppliers",
     "file1": "suppliers_*.xlsx",
     "file2": "*_active.xlsx",
-    "files number": 2,
-    "check_mode": "both"
+    "check_mode": "both",
+    "files number": 2
   },
   "output_report": "C:\\Users\\ines.ghali_amaris\\Downloads\\sample_desktop_data\\etl_output\\final_outputs.xlsx",
   "rejected_invoices": "C:\\Users\\ines.ghali_amaris\\OneDrive - Mantu Group\\Desktop\\sample_desktop_data\\etl_output\\rejected_invoices.xlsx",
